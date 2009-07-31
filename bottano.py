@@ -158,10 +158,17 @@ class Pinolo(SingleServerIRCBot):
 
     def say_quote(self, event, id=None):
 	c = self.connection
-	if id:
-	    self.dbcursor.execute("SELECT quote FROM quotes WHERE quoteid = ?", (id,))
-	else:
-	    self.dbcursor.execute("SELECT quoteid,quote FROM quotes ORDER BY RANDOM() LIMIT 1")
+
+	# I wrap this with try() to avoid problems with invalid id's.
+	# example: !q 6666666666666666666666666666666666666666666666666666666666666666666666
+	try:
+	    if id:
+		self.dbcursor.execute("SELECT quote FROM quotes WHERE quoteid = ?", (id,))
+	    else:
+		self.dbcursor.execute("SELECT quoteid,quote FROM quotes ORDER BY RANDOM() LIMIT 1")
+	except OverflowError:
+	    self.tell(event, "A stronzo, ma te pare??")
+	    return
 	
 	quote = self.dbcursor.fetchone()
 	if quote and id:
@@ -204,14 +211,22 @@ class Pinolo(SingleServerIRCBot):
 
 
 def main():
-    import sys
-    channels = [ '#test' ]
-    nickname = "stupidbot"
-    server = "irc.azzurra.org"
-    port = 6667
-    ns_pass = 'change_me'
+    import ConfigParser
+    from re import split
 
-    bot = Pinolo(channels, nickname, server, port, ns_pass)
+    defaultConfigFile = "./pinolo.cfg"
+
+    config = ConfigParser.ConfigParser()
+    config.read(defaultConfigFile)
+
+    channels = re.split("\s*,\s*", config.get("General", "channels"))
+
+    bot = Pinolo( channels,
+	    config.get("General", "nickname"),
+	    config.get("General", "server"),
+	    int(config.get("General", "port")),	    # int !
+	    config.get("NickServ", "password") )
+
     bot.start()
 
 if __name__ == "__main__":
