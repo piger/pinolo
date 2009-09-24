@@ -30,10 +30,12 @@ class Pinolo(irc.IRCClient):
     
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
+	self.factory.connection = self
         print "Connected!"
     
     def connectionLost(self, reason):
 	irc.IRCClient.connectionLost(self, reason)
+	self.factory.connection = None
         print "connection lost!"
     
     def signedOn(self):
@@ -54,7 +56,7 @@ class Pinolo(irc.IRCClient):
 	    if msg == '!quit':
 		print "quitto"
 		# come faccio a farlo quittare da tutti i server ?
-		self.quit("ADDIO MONDO CLUEDO!")
+		#self.quit("ADDIO MONDO CLUEDO!")
 		reactor.stop()
 	    elif msg == '!q':
 		id, quote = self.factory.dbh.get_quote()
@@ -68,10 +70,13 @@ class PinoloFactory(protocol.ClientFactory):
 
     def __init__(self, config):
 	self.config = config
+	# ogni factory (una per server) DEVE avere modo di accedere
+	# alla sua connessione in corso!
+	self.connection = None
+
         self.channels = self.config['channels'][:]
         self.nickname = self.config['nickname']
 	self.dbh = db.DbHelper("quotes.db")
-	#reactor.addSystemEventTrigger('before', 'shutdown', self.stopConnection)
 
     def clientConnectionLost(self, connector, reason):
 	print "Lost connection (%s), reconnecting." % (reason,)

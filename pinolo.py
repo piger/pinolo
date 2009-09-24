@@ -1,13 +1,22 @@
 #!/usr/bin/env python
 
 import sys
+from twisted.python import log
 from irc import *
 import db
 
+factories = []
+
+def stopConnections():
+    global factories
+    for factory in factories:
+	factory.connection.quit("ADIEU!")
+
+
 def main():
-    from twisted.python import log
     #import ConfigParser
     from re import split
+    global factories
 
     # start logging
     log.startLogging(sys.stdout)
@@ -44,11 +53,12 @@ def main():
 	}
     ]
 
-    f = []
     for server in servers:
-	factory = PinoloFactory(server)
-	reactor.connectTCP(server['address'], 6667, factory)
-	f.append(factory)
+	f = PinoloFactory(server)
+	factories.append(f)
+	reactor.connectTCP(server['address'], 6667, f)
+    reactor.addSystemEventTrigger('before', 'shutdown', stopConnections)
+
     reactor.run()
 
 if __name__ == "__main__":

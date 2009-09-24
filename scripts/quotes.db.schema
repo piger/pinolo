@@ -1,6 +1,0 @@
-CREATE TABLE quotes (
-        quoteid INTEGER PRIMARY KEY,
-        quote TEXT NOT NULL,
-        author TEXT,
-        data TEXT NOT NULL
-);
