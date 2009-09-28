@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 from twisted.words.protocols import irc
-#from twisted.internet import reactor, protocol, ReconnectingClientFactory
-from twisted.internet import reactor, ReconnectingClientFactory
+from twisted.internet import reactor, protocol
 from twisted.python import log
 import re
 import db
@@ -52,52 +51,54 @@ class Pinolo(irc.IRCClient):
         user = user.split('!', 1)[0]
 	ircnet = self.factory.config['name']
 
-	log.msg("[%s] <%s> <%s>" % (ircnet, user, msg))
+	log.msg("[%s] <%s> %s" % (ircnet, user, msg))
 
 	if msg.startswith('!'):
 	    if msg == '!quit':
 		print "quitto"
-		# come faccio a farlo quittare da tutti i server ?
-		#self.quit("ADDIO MONDO CLUEDO!")
-		reactor.stop()
+		self.factory.quitting = True
+		self.factory.padre.spegni_tutto()
 	    elif msg == '!q':
-		id, quote = self.factory.dbh.get_quote()
+		id, quote = self.factory.padre.dbh.get_quote()
 		self.msg(channel, "%s: %s" % (id, quote))
 
 
-class PinoloFactory(ReconnectingClientFactory):
-    """the factory"""
+class PinoloFactory(protocol.ReconnectingClientFactory):
+    """the factory
+    - ricorda che ha .padre!
+    """
 
-    protocol = Pinolo
+    #protocol = Pinolo
 
     def __init__(self, config):
 	self.config = config
-	# ogni factory (una per server) DEVE avere modo di accedere
-	# alla sua connessione in corso!
-	self.connection = None
-
+	self.clienti = []
         self.channels = self.config['channels'][:]
         self.nickname = self.config['nickname']
-	self.dbh = db.DbHelper("quotes.db")
-
-	# non sono sicuro che vada qui, ma provo
-	# resetta il reconnection delay
+	self.quitting = False
+	# per ReconnectingClientFactory
 	self.resetDelay()
+
+    def buildProtocol(self, addr):
+	print "Connected to %s %s" % (addr.host, addr.port)
+	c = Pinolo()
+	c.factory = self
+	self.clienti.append(c)
+	return c
 
     def clientConnectionLost(self, connector, reason):
 	print "Lost connection (%s), reconnecting." % (reason,)
-        #connector.connect()
-	ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+	if self.quitting == False:
+	    #connector.connect()
+	    ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+	else:
+	    if len(self.clienti) == 0:
+		self.padre.spegnimi(self)
 
     def clientConnectionFailed(self, connector, reason):
 	print "Could not connect: %s" % (reason,)
+	ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
         #reactor.stop()
-	ReconnectingClientFactory.clientConnectionFailed(self, connector,
-		reason)
-
-    # questo non succede
-    def stopFactory(self):
-	log.msg("STOPPO LA FATTORIA!")
 
 if __name__ == "__main__":
     print 'hi!'
