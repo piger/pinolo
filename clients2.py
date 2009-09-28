@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+# esempio di twisted python della gestione di connessioni
+# multiple tramite un connection manager.
+# Ogni connessione ha la sua factory con la propria configurazione
+# ma fanno tutte capo a un ConnectionManager che puo' anche gestire
+# i dati condivisi.
 
 from twisted.internet.protocol import Protocol, ClientFactory
 from sys import stdout
@@ -49,6 +54,8 @@ class ConnManager():
     def __init__(self):
 	"""Inizializza lo "storage" delle Factory"""
 	self.figli = []
+	# qui per esempio potrei inizializzare l'handler per
+	# il DB SQLite, condiviso tra tutti i client.
 
     def aggiungi(self, f):
 	"""Aggiunge una factory alla lista, e imposta l'attributo

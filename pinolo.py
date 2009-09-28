@@ -57,7 +57,7 @@ def main():
 	f = PinoloFactory(server)
 	factories.append(f)
 	reactor.connectTCP(server['address'], 6667, f)
-    reactor.addSystemEventTrigger('before', 'shutdown', stopConnections)
+    reactor.addSystemEventTrigger('before', 'shutdown', stopConnection)
 
     reactor.run()
 

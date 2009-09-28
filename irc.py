@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol
+#from twisted.internet import reactor, protocol, ReconnectingClientFactory
+from twisted.internet import reactor, ReconnectingClientFactory
 from twisted.python import log
 import re
 import db
@@ -13,6 +14,7 @@ class Pinolo(irc.IRCClient):
 	log.msg("lo muoio in automatico")
 	#irc.IRCClient.quit("dice che devo mori'!")
 	self.protocol.quit("!")
+
     def _get_nickname(self):
 	return self.factory.nickname
 
@@ -63,7 +65,7 @@ class Pinolo(irc.IRCClient):
 		self.msg(channel, "%s: %s" % (id, quote))
 
 
-class PinoloFactory(protocol.ClientFactory):
+class PinoloFactory(ReconnectingClientFactory):
     """the factory"""
 
     protocol = Pinolo
@@ -78,14 +80,22 @@ class PinoloFactory(protocol.ClientFactory):
         self.nickname = self.config['nickname']
 	self.dbh = db.DbHelper("quotes.db")
 
+	# non sono sicuro che vada qui, ma provo
+	# resetta il reconnection delay
+	self.resetDelay()
+
     def clientConnectionLost(self, connector, reason):
 	print "Lost connection (%s), reconnecting." % (reason,)
-        connector.connect()
+        #connector.connect()
+	ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
 	print "Could not connect: %s" % (reason,)
-        reactor.stop()
+        #reactor.stop()
+	ReconnectingClientFactory.clientConnectionFailed(self, connector,
+		reason)
 
+    # questo non succede
     def stopFactory(self):
 	log.msg("STOPPO LA FATTORIA!")
 
