@@ -5,6 +5,7 @@ from twisted.internet import reactor, protocol
 from twisted.python import log
 import re
 import db
+import random
 
 class Pinolo(irc.IRCClient):
     """the protocol"""
@@ -53,14 +54,57 @@ class Pinolo(irc.IRCClient):
 
 	log.msg("[%s] <%s> %s" % (ircnet, user, msg))
 
+	if (user == 'pynolo' or msg.startswith('pynolo:') or
+		msg.startswith('pynolo,')):
+		return
+
 	if msg.startswith('!'):
 	    if msg == '!quit':
 		print "quitto"
-		self.factory.quitting = True
 		self.factory.padre.spegni_tutto()
+
 	    elif msg == '!q':
 		id, quote = self.factory.padre.dbh.get_quote()
 		self.msg(channel, "%s: %s" % (id, quote))
+
+	    elif msg.startswith('!addq'):
+		if ircnet != 'AZZURRA':
+		    self.msg(channel, "%s: qui non posso." % (user))
+		    return
+		m = re.findall('^!addq (.*)', msg)
+		if len(m) > 0:
+		    id = self.factory.padre.dbh.add_quote(user, m.pop())
+		    self.msg(channel, "%s: aggiunto il quote %s" % (user, id))
+		else:
+		    self.msg(channel, "%s: ma de che?")
+
+	elif msg.startswith(self.nickname):
+	    msg = re.sub("^%s\s*[:,]\s+" % (self.nickname), '', msg)
+	    sentence = self.factory.padre.brain.generate_text(msg)
+	    if sentence:
+		sentence = sentence.encode('utf-8')
+		log.msg("sentence: %s" % (sentence))
+		self.msg(channel, "%s: %s" % (user, sentence))
+	    else:
+		replies = (
+			"pinot di pinolo",
+			"sugo di cazzo?",
+			"cazzoddio",
+			"non ho capito",
+			"non voglio capirti",
+			"mi stai sul cazzo",
+			"odio l'olio",
+			"famose na canna",
+			"sono nato per deficere",
+			"mi sto cagando addosso"
+		)
+		self.msg(channel, "%s: %s" % (user, random.choice(replies)))
+	
+	else:
+	    if msg.startswith('***') or channel == '#core':
+		return
+	    log.msg("imparo (da %s): %s" % (channel, msg))
+	    self.factory.padre.brain.add_to_brain(msg)
 
 
 class PinoloFactory(protocol.ReconnectingClientFactory):
@@ -87,17 +131,20 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
 	return c
 
     def clientConnectionLost(self, connector, reason):
-	print "Lost connection (%s), reconnecting." % (reason,)
 	if self.quitting == False:
 	    #connector.connect()
-	    ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+	    print "Lost connection (%s), reconnecting." % (reason,)
+	    protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 	else:
-	    if len(self.clienti) == 0:
-		self.padre.spegnimi(self)
+	    # qui dovrei controllare se ci sono altri "clienti" collegati,
+	    # ma per ora evito
+	    #if len(self.clienti) == 0:
+	    #    self.padre.spegnimi(self)
+	    self.padre.spegnimi(self)
 
     def clientConnectionFailed(self, connector, reason):
 	print "Could not connect: %s" % (reason,)
-	ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
+	protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
         #reactor.stop()
 
 if __name__ == "__main__":

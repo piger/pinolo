@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 import sys
+import os
 from twisted.python import log
 from irc import *
 import db
+from markov import Markov
 
 class ConnManager():
     """Questa classe e' un Connection Manager, si occupa
@@ -15,6 +17,7 @@ class ConnManager():
 	"""Inizializza lo "storage" delle Factory"""
 	self.figli = []
 	self.dbh = db.DbHelper("quotes.db")
+	self.brain = Markov()
 
     def aggiungi(self, f):
 	"""Aggiunge una factory alla lista, e imposta l'attributo
@@ -28,6 +31,7 @@ class ConnManager():
 	(Protocol) chiama il metodo spegni().
 	E' lo shutdown globale chiamato da un protocol."""
 	for f in self.figli:
+	    f.quitting = True
 	    for c in f.clienti:
 		c.quit("ME LO HAN DETTO!")
 
@@ -37,12 +41,12 @@ class ConnManager():
 	e se questa e' l'ultima, stoppa il reactor."""
 	self.figli.remove(figlio)
 	if len(self.figli) == 0:
+	    self.brain.dump_brain()
 	    reactor.stop()
 
 def main():
     #import ConfigParser
     from re import split
-    global factories
 
     # start logging
     log.startLogging(sys.stdout)
@@ -68,7 +72,7 @@ def main():
 	    'address' : 'irc.azzurra.org',
 	    'port' : 6667,
 	    'nickname': 'p1nol0',
-	    'channels' : ['#mortodentro']
+	    'channels' : ['#mortodentro', '#retrocomputing']
 	},
 	{
 	    'name' : "FREAKNET",
@@ -79,7 +83,17 @@ def main():
 	}
     ]
 
+    chain_length = 3
+
     c = ConnManager()
+
+    # markov
+    #if os.path.exists('training.txt'):
+    #    f = open('training.txt', 'r')
+    #    for line in f:
+    #        c.brain.add_to_brain(line, chain_length)
+    #    f.close()
+
     for server in servers:
 	f = PinoloFactory(server)
 	c.aggiungi(f)
