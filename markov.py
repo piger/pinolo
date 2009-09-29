@@ -25,6 +25,7 @@ class Markov(object):
 	self.sample_text = sample_text
 	self.autosave = autosave
 	self.counter = 0
+	self.stopwords = set([x.strip() for x in open("stopwords_it.txt")])
 
 	if os.path.exists(self.brain_file):
 	    fd = open(self.brain_file, 'rb')
@@ -80,6 +81,8 @@ class Markov(object):
 
 	if sample:
 	    sample_words = sample.split()
+	    sample_words = filter (lambda x: x not in self.stopwords,
+		    sample_words)
 	    random.shuffle(sample_words)
 	    for word in sample_words:
 		if self.markov.has_key(word):
@@ -102,12 +105,77 @@ class Markov(object):
 
 	return (' '.join(message) + '.').capitalize()
 
+
+class NewMarkov(object):
+    def __init__(self, n=2, max=100):
+	self.n = n
+	self.ngrams = {}
+	self.max = max
+	self.beginnings = []
+
+    def tokenize(self, text):
+	return text.split(" ")
+
+    def concatenate(self, elements):
+	return ' '.join(elements)
+
+    def feed(self, text):
+	tokens = self.tokenize(text)
+
+	if len(tokens) < self.n:
+	    return
+
+	beginning = tuple(tokens[:self.n])
+	self.beginnings.append(beginning)
+
+	for i in range(len(tokens) - self.n):
+	    gram = tuple(tokens[i:i+self.n])
+	    next = tokens[i+self.n]
+
+	    if gram in self.ngrams:
+		self.ngrams[gram].append(next)
+	    else:
+		self.ngrams[gram] = [next]
+
+    def generate(self):
+	from random import choice
+
+	current = choice(self.beginnings)
+	output = list(current)
+
+	for i in range(self.max):
+	    if current in self.ngrams:
+		possible_next = self.ngrams[current]
+		next = choice(possible_next)
+		output.append(next)
+		current = tuple(output[-self.n:])
+	    else:
+		break
+	output_str = self.concatenate(output)
+	return output_str
+
+
 def usage():
     print "%s: [-h] [-g \"sample text\"] [-i \"input file\"]" % ("markov.py")
 
 if __name__ == '__main__':
     import getopt, sys
 
+    # new
+    p = NewMarkov(3)
+    fd = open('/Users/sand/Downloads/i_promes.txt', 'r')
+    for line in fd:
+	for sentence in re.split("\.{1,3}(?:\n|\s+)", line):
+	    p.feed(sentence)
+    fd.close()
+    for i in range(5):
+	print p.generate()
+	print "-"
+
+    sys.exit()
+
+
+    # end
     try:
 	opts, args = getopt.getopt(sys.argv[1:], "hri:g:", ["help", "random", "import=",
 	    "generate="])
