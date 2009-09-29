@@ -6,6 +6,7 @@ from twisted.python import log
 import re
 import db
 import random
+import utils
 
 class Pinolo(irc.IRCClient):
     """the protocol"""
@@ -54,17 +55,22 @@ class Pinolo(irc.IRCClient):
 
 	log.msg("[%s] <%s> %s" % (ircnet, user, msg))
 
-	if (user == 'pynolo' or msg.startswith('pynolo:') or
-		msg.startswith('pynolo,')):
-		return
+	if user == 'pynolo' or re.match("^pynolo[:,]\s+", msg):
+	    return
 
 	if msg.startswith('!'):
 	    if msg == '!quit':
 		print "quitto"
 		self.factory.padre.spegni_tutto()
+		return
 
-	    elif msg == '!q':
-		id, quote = self.factory.padre.dbh.get_quote()
+	    elif msg.startswith('!q'):
+		quote_id = re.findall("^!q (\d+)", msg)
+		if len(quote_id) > 0:
+		    log.msg("Dovrei cercare: %s" % (quote_id[0]))
+		    (id, quote) = self.factory.padre.dbh.get_quote(quote_id[0])
+		else:
+		    (id, quote) = self.factory.padre.dbh.get_quote()
 		self.msg(channel, "%s: %s" % (id, quote))
 
 	    elif msg.startswith('!addq'):
@@ -79,8 +85,8 @@ class Pinolo(irc.IRCClient):
 		    self.msg(channel, "%s: ma de che?")
 
 	elif msg.startswith(self.nickname):
-	    msg = re.sub("^%s\s*[:,]\s+" % (self.nickname), '', msg)
-	    sentence = self.factory.padre.brain.generate_text(msg)
+	    msg = utils.clean_irc(msg)
+	    sentence = self.factory.padre.brain.gen(msg)
 	    if sentence:
 		sentence = sentence.encode('utf-8')
 		log.msg("sentence: %s" % (sentence))
@@ -103,8 +109,11 @@ class Pinolo(irc.IRCClient):
 	else:
 	    if msg.startswith('***') or channel == '#core':
 		return
-	    log.msg("imparo (da %s): %s" % (channel, msg))
-	    self.factory.padre.brain.add_to_brain(msg)
+	    msg = utils.clean_irc(msg)
+	    msg_words = msg.split()
+	    if len(msg_words) > 1:
+		log.msg("imparo (da %s): %s" % (channel, msg))
+		self.factory.padre.brain.learn(msg_words)
 
 
 class PinoloFactory(protocol.ReconnectingClientFactory):

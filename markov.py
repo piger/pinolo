@@ -12,127 +12,121 @@ import random
 import pickle
 import os
 import re
-import sys
+from collections import defaultdict
+from utils import *
 
 class Markov(object):
-    def __init__(self, brain_file='brain.b', autosave=50):
+    def __init__(self, brain_file='brain.new',
+	    sample_text='/Users/sand/Downloads/i_promes.txt', autosave=50):
 	"""autosave = 0 per disattivare"""
-	self.cache = {}
-	self.brain_file = brain_file
-	self.setup_brain()
 
-	self.autosave = 100
+	self.markov = defaultdict(list)
+	self.brain_file = brain_file
+	self.sample_text = sample_text
+	self.autosave = autosave
 	self.counter = 0
 
-	# XXX questo lo devo calcolare runtime
-	#self.word_size = len(self.words)
-
-	# e' che non capisco nel codice quando e se utilizza quelle probabilita'
-
-    def setup_brain(self):
 	if os.path.exists(self.brain_file):
-	    fd = open(self.brain_file, 'r')
-
-	    data = pickle.load(fd)
-	    for k, v in data.iteritems():
-		self.cache[k] = v
-
+	    fd = open(self.brain_file, 'rb')
+	    self.markov = pickle.load(fd)
 	    fd.close()
+	else:
+	    self.learn_from_file(self.sample_text)
 
-    def clean_irc(self, msg):
-	"""Prende del testo da IRC e lo pulisce da:
-	- nickname: a inizio riga
-	- whitespace
-	- encoding utf-8
-	"""
-	# strippa "nick: " all'inizio delle frasi
-	msg = re.sub("^[^:]+:\s+", '', msg, 1)
-	# strippa newline
-	msg = re.sub("\n$", "", msg)
-	# strippa whitespace a inizio e fine riga
-	msg = msg.strip()
-	#return msg.encode('utf-8')
-	return msg
+    def dump_brain(self):
+	fd = open(self.brain_file, 'wb')
+	pickle.dump(self.markov, fd, pickle.HIGHEST_PROTOCOL)
+	fd.close()
 
-    def triples(self, words):
-	if len(words) < 3:
-	    return
+    def learn_from_file(self, filename):
+	fd = open(filename, 'r')
+	fd.seek(0)
+	data = fd.read()
+	data = unicodize(data)
+	words = data.split()
+	fd.close()
+	if len(words) < 2:
+	    print "Poche parole nel file da imparare."
+	    raise Exception
+	else:
+	    print "totale parole: %i" % (len(words))
 
-	for i in range(len(words) - 2):
-	    yield(words[i], words[i+1], words[i+2])
+	# avoid autosave
+	old_autosave = self.autosave
+	self.autosave = 0
+	self.learn(words)
+	self.autosave = old_autosave
 
-    def add_to_brain(self, msg):
-	msg = self.clean_irc(msg)
-	words = msg.split()
+	self.dump_brain()
 
-	for w1, w2, w3 in self.triples(words):
-	    key = (w1, w2)
-	    if key in self.cache:
-		self.cache[key].append(w3)
-	    else:
-		self.cache[key] = [w3]
+    def learn(self, words):
+	if len(words) < 2:
+	    return None
 
-	# dumpa il brain ogni self.autosave chiamate a questa funzione.
+	chain = [None, None]
+	for word in words:
+	    chain[0], chain[1] = chain[1], word
+	    if chain[0]:
+		self.markov[chain[0]].append(chain[1])
+
 	if self.autosave > 0:
 	    self.counter += 1
 	    if self.counter >= self.autosave:
 		self.counter = 0
 		self.dump_brain()
 
-    def generate_text(self, msg, size=25):
-	msg = self.clean_irc(msg)
-	words = msg.split()
+    def gen(self, sample=None, max_words=20):
+	message = []
 
-	if len(words) < 2:
-	    w1, w2 = random.choice(self.cache.keys())
-	else:
-	    w1, w2 = words[0], words[1]
+	if sample:
+	    sample_words = sample.split()
+	    random.shuffle(sample_words)
+	    for word in sample_words:
+		if self.markov.has_key(word):
+		    message.append(word)
+		    break
 
-	gen_words = []
-	for i in xrange(size):
-	    gen_words.append(w1)
-	    try:
-		w1, w2 = w2, random.choice(self.cache[(w1, w2)])
-	    except KeyError:
+	# non ci sono dati sample, ne prendo uno a caso
+	if len(message) == 0:
+	    message.append(random.choice(self.markov.keys()))
+
+	while len(message) < max_words:
+	    if self.markov.has_key(message[-1]):
+		message.append(random.choice(self.markov[message[-1]]))
+	    else:
+		message.append(random.choice(self.markov.keys()))
+
+	    # mi fermo se c'e' un punto nella frase
+	    if message[-1].endswith('.'):
 		break
-	gen_words.append(w2)
 
-	result = ' '.join(gen_words)
-	if result.strip() == msg.strip():
-	    return None
-	else:
-	    return result
+	return (' '.join(message) + '.').capitalize()
 
-    def dump_brain(self):
-	fd = open(self.brain_file, 'w')
-	pickle.dump(self.cache, fd, pickle.HIGHEST_PROTOCOL)
-	fd.close()
-	print "ho dumpato"
-
+def usage():
+    print "%s: [-h] [-g \"sample text\"] [-i \"input file\"]" % ("markov.py")
 
 if __name__ == '__main__':
+    import getopt, sys
 
-    if len(sys.argv) < 3:
-	print "diohan: <brain file> <input file>"
-	sys.exit(-1)
+    try:
+	opts, args = getopt.getopt(sys.argv[1:], "hri:g:", ["help", "random", "import=",
+	    "generate="])
+    except getopt.GetoptError, err:
+	print str(err)
+	usage()
+	sys.exit(2)
 
-    m = Markov(brain_file=sys.argv[1], autosave=0)
-    fd = open(sys.argv[2], 'r')
-    counter = 0
-    for line in fd:
-        # x-chat
-        # Aug 03 00:50:10 TheOsprey       culoh
-	if re.match("^\w+ \d+ \d+:\d+:\d+ \S+", line):
-	    m.add_to_brain(' '.join(line.split()[4:]))
-	    counter += 1
+    m = Markov(autosave=0)
 
-    m.dump_brain()
-    fd.close()
-    print "Aggiunti: %s" % (counter)
-
-    #m = Markov(autosave=0)
-    #for i in range(10):
-    #    if len(sys.argv) > 1:
-    #        print m.generate_text(sys.argv[1])
-    #    else:
-    #        print m.generate_text('test')
+    for o, a in opts:
+	if o in ("-g", "--generate"):
+	    print m.gen(a)
+	elif o in ("-i", "--import"):
+	    m.learn_from_file(a)
+	elif o in ("-h", "--help"):
+	    usage()
+	    sys.exit()
+	elif o in ("-r", "--random"):
+	    print m.gen()
+	else:
+	    assert False, "unhandled option"

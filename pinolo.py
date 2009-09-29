@@ -1,11 +1,33 @@
 #!/usr/bin/env python
 
+"""Pinolo"""
+
 import sys
+
+# verify python version is high enough
+if sys.version_info[0] * 10 + sys.version_info[1] < 25:
+    error = RuntimeError(u'pinolo requires python 2.5 or higher')
+    if __name__ == '__main__':
+        print >> sys.stderr, error
+        sys.exit(1)
+    else:
+        raise error
+
 import os
 from twisted.python import log
 from irc import *
 import db
 from markov import Markov
+
+__version__ = u'0.2'
+__author__  = u'sand <daniel@spatof.org>'
+#__all__	    = [u'Pinolo']
+# http://effbot.org/pyref/__all__.htm
+
+CHARSET	    = u'utf-8'
+CONFIG	    = 'pinolo.cfg'
+QUOTESDB    = 'quotes.db'
+BRAINFILE   = 'brain.b'
 
 class ConnManager():
     """Questa classe e' un Connection Manager, si occupa
@@ -17,7 +39,7 @@ class ConnManager():
 	"""Inizializza lo "storage" delle Factory"""
 	self.figli = []
 	self.dbh = db.DbHelper("quotes.db")
-	self.brain = Markov()
+	self.brain = Markov(brain_file=BRAINFILE)
 
     def aggiungi(self, f):
 	"""Aggiunge una factory alla lista, e imposta l'attributo
@@ -79,7 +101,7 @@ def main():
 	    'address' : 'irc.hinezumilabs.org',
 	    'port' : 6667,
 	    'nickname': 'p1nol0',
-	    'channels' : ['#test123']
+	    'channels' : ['#core', '#test123']
 	}
     ]
 
@@ -102,5 +124,5 @@ def main():
     reactor.run()
 
 # start
-if __name__ == "__main__":
-    main()
+if __name__ == u'__main__':
+    sys.exit(main())
