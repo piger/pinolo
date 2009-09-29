@@ -67,54 +67,30 @@ class ConnManager():
 	    reactor.stop()
 
 def main():
-    #import ConfigParser
+    import ConfigParser
     from re import split
 
     # start logging
     log.startLogging(sys.stdout)
 
-    #defaultConfigFile = "./pinolo.cfg"
-    #config = ConfigParser.ConfigParser()
-    #config.read(defaultConfigFile)
+    defaultConfigFile = 'pinolo.cfg'
+    config = ConfigParser.ConfigParser()
+    config.read(defaultConfigFile)
 
-    #channels = re.split("\s*,\s*", config.get("General", "channels"))
+    servers = []
 
-    #bot = Pinolo( channels,
-    #        config.get("General", "nickname"),
-    #        config.get("General", "server"),
-    #        int(config.get("General", "port")),	    # int !
-    #        config.get("NickServ", "password") )
-
-    #bot.start()
-
-    # quick conf
-    servers = [
-	{
-	    'name' : "AZZURRA",
-	    'address' : 'irc.azzurra.org',
-	    'port' : 6667,
-	    'nickname': 'p1nol0',
-	    'channels' : ['#mortodentro', '#retrocomputing']
-	},
-	{
-	    'name' : "FREAKNET",
-	    'address' : 'irc.hinezumilabs.org',
-	    'port' : 6667,
-	    'nickname': 'p1nol0',
-	    'channels' : ['#core', '#test123']
-	}
-    ]
-
-    chain_length = 3
+    for section in config.sections():
+	if section.startswith("Server"):
+	    server = {
+		    'name': config.get(section, 'name'),
+		    'address':	config.get(section, 'server'),
+		    'port':	int(config.get(section, 'port')),
+		    'nickname':	config.get(section, 'nickname'),
+		    'channels':	config.get(section, 'channels').split(", ")
+	    }
+	    servers.append(server)
 
     c = ConnManager()
-
-    # markov
-    #if os.path.exists('training.txt'):
-    #    f = open('training.txt', 'r')
-    #    for line in f:
-    #        c.brain.add_to_brain(line, chain_length)
-    #    f.close()
 
     for server in servers:
 	f = PinoloFactory(server)

@@ -74,7 +74,7 @@ class Pinolo(irc.IRCClient):
 		self.msg(channel, "%s: %s" % (id, quote))
 
 	    elif msg.startswith('!addq'):
-		if ircnet != 'AZZURRA':
+		if ircnet != 'azzurra':
 		    self.msg(channel, "%s: qui non posso." % (user))
 		    return
 		m = re.findall('^!addq (.*)', msg)
