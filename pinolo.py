@@ -17,7 +17,7 @@ import os
 from twisted.python import log
 from irc import *
 import db
-from markov import Markov
+import mh_python
 
 __version__ = u'0.2'
 __author__  = u'sand <daniel@spatof.org>'
@@ -63,7 +63,8 @@ class ConnManager():
 	e se questa e' l'ultima, stoppa il reactor."""
 	self.figli.remove(figlio)
 	if len(self.figli) == 0:
-	    self.brain.dump_brain()
+	    # salvo il brain megahal
+	    mh_python.cleanup()
 	    reactor.stop()
 
 def main():
@@ -89,6 +90,9 @@ def main():
 		    'channels':	config.get(section, 'channels').split(", ")
 	    }
 	    servers.append(server)
+
+    # Starto MegaHAL
+    mh_python.initbrain()
 
     c = ConnManager()
 

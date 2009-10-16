@@ -7,6 +7,7 @@ import re
 import db
 import random
 import utils
+import mh_python
 
 class Pinolo(irc.IRCClient):
     """the protocol"""
@@ -75,6 +76,10 @@ class Pinolo(irc.IRCClient):
 		    (id, quote) = self.factory.padre.dbh.get_quote()
 		self.msg(channel, "%s: %s" % (id, quote))
 
+	    elif msg.startswith('!salvatuto'):
+		mh_python.cleanup()
+		log.msg("Salvo il cervello MegaHAL")
+
 	    elif msg.startswith('!addq'):
 		if ircnet != 'azzurra':
 		    self.msg(channel, "%s: qui non posso." % (user))
@@ -88,7 +93,8 @@ class Pinolo(irc.IRCClient):
 
 	elif msg.startswith(self.nickname):
 	    msg = utils.clean_irc(msg)
-	    sentence = self.factory.padre.brain.gen(msg)
+	    sentence = mh_python.doreply(msg)
+
 	    if sentence:
 		sentence = sentence.encode('utf-8')
 		log.msg("sentence: %s" % (sentence))
@@ -112,10 +118,7 @@ class Pinolo(irc.IRCClient):
 	    if msg.startswith('***') or channel == '#core':
 		return
 	    msg = utils.clean_irc(msg)
-	    msg_words = msg.split()
-	    if len(msg_words) > 1:
-		log.msg("imparo (da %s): %s" % (channel, msg))
-		self.factory.padre.brain.learn(msg_words)
+	    mh_python.learn(msg)
 
 
 class PinoloFactory(protocol.ReconnectingClientFactory):
