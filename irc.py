@@ -76,7 +76,7 @@ class Pinolo(irc.IRCClient):
 		    (id, quote) = self.factory.padre.dbh.get_quote()
 		self.msg(channel, "%s: %s" % (id, quote))
 
-	    elif msg.startswith('!salvatuto'):
+	    elif msg.startswith('!salvatutto'):
 		mh_python.cleanup()
 		log.msg("Salvo il cervello MegaHAL")
 
@@ -92,6 +92,8 @@ class Pinolo(irc.IRCClient):
 		    self.msg(channel, "%s: ma de che?")
 
 	elif msg.startswith(self.nickname):
+	    # XXX strippo il mio nickname. controllare regexp.
+	    msg = re.sub("^%s\s*[:,]\s+" % (self.nickname), "", msg)
 	    msg = utils.clean_irc(msg)
 	    sentence = mh_python.doreply(msg)
 

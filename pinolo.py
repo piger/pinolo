@@ -39,7 +39,6 @@ class ConnManager():
 	"""Inizializza lo "storage" delle Factory"""
 	self.figli = []
 	self.dbh = db.DbHelper("quotes.db")
-	self.brain = Markov(brain_file=BRAINFILE)
 
     def aggiungi(self, f):
 	"""Aggiunge una factory alla lista, e imposta l'attributo
