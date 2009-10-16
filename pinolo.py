@@ -55,7 +55,7 @@ class ConnManager():
 	for f in self.figli:
 	    f.quitting = True
 	    for c in f.clienti:
-		c.quit("ME LO HAN DETTO!")
+		c.quit("HO DISOBBEDITO E QUINDI SCHIATTO!")
 
     def spegnimi(self, figlio):
 	"""Questo viene chiamato da una Factory quando tutte le sue

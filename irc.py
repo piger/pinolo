@@ -60,6 +60,8 @@ class Pinolo(irc.IRCClient):
 
 	if msg.startswith('!'):
 	    if msg == '!quit':
+		if user != 'sand':
+		    return
 		print "quitto"
 		self.factory.padre.spegni_tutto()
 		return
