@@ -6,7 +6,7 @@ import sys
 
 # verify python version is high enough
 if sys.version_info[0] * 10 + sys.version_info[1] < 25:
-    error = RuntimeError(u'pinolo requires python 2.5 or higher')
+    error = RuntimeError('pinolo requires python 2.5 or higher')
     if __name__ == '__main__':
         print >> sys.stderr, error
         sys.exit(1)
@@ -19,12 +19,12 @@ from irc import *
 import db
 import mh_python
 
-__version__ = u'0.2'
-__author__  = u'sand <daniel@spatof.org>'
-#__all__	    = [u'Pinolo']
+__version__ = '0.2'
+__author__  = 'sand <daniel@spatof.org>'
+#__all__	    = ['Pinolo']
 # http://effbot.org/pyref/__all__.htm
 
-CHARSET	    = u'utf-8'
+CHARSET	    = 'utf-8'
 CONFIG	    = 'pinolo.cfg'
 QUOTESDB    = 'quotes.db'
 BRAINFILE   = 'brain.b'
@@ -103,5 +103,5 @@ def main():
     reactor.run()
 
 # start
-if __name__ == u'__main__':
+if __name__ == '__main__':
     sys.exit(main())

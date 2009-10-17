@@ -12,116 +12,160 @@ import mh_python
 class Pinolo(irc.IRCClient):
     """the protocol"""
 
-    def stopConnection(self):
-	log.msg("lo muoio in automatico")
-	#irc.IRCClient.quit("dice che devo mori'!")
-	self.protocol.quit("!")
-
-    def _get_nickname(self):
-	return self.factory.nickname
-
     nickname = property(_get_nickname)
     realname = 'pinot di pinolo'
     username = 'suca'
     sourceURL = 'http://github.com/piger/pinolo'
 
     versionName = 'pinolo'
-    versionNum = '0.1'
+    versionNum = '0.1.2'
     versionEnv = 'gnu\LINUCS'
     # Minimum delay between lines sent to the server. If None, no delay will be
     # imposed. (type: Number of Seconds. )
     # lineRate = 1
-    
+    # ogni quanti privmsg va salvato il brain ?
+    brainSaveLimit = 50
+
+    dumbReplies = (
+	    "pinot di pinolo",
+	    "sugo di cazzo?",
+	    "cazzoddio",
+	    "non ho capito",
+	    "non voglio capirti",
+	    "mi stai sul cazzo",
+	    "odio l'olio",
+	    "famose na canna",
+	    "sono nato per deficere",
+	    "mi sto cagando addosso"
+    )
+
+
+    def stopConnection(self):
+	log.msg("lo muoio in automatico")
+	#irc.IRCClient.quit("dice che devo mori'!")
+	self.protocol.quit("!")
+
+
+    # XXX non so il perche' di questo magheggio.
+    def _get_nickname(self):
+	return self.factory.nickname
+
+
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
 	self.factory.connection = self
         print "Connected!"
+	# inizializzo il counter per salvare il brain
+	self.brainCounter = 0
     
+
     def connectionLost(self, reason):
 	irc.IRCClient.connectionLost(self, reason)
 	self.factory.connection = None
         print "connection lost!"
     
+
     def signedOn(self):
         for chan in self.factory.channels:
             self.join(chan)
-        print "Signed on as %s." % (self.nickname,)
+        print "Signed on as %s." % (self.nickname)
     
+
     def joined(self, channel):
-        print "Joined %s." % (channel,)
-    
+        print "Joined %s." % (channel)
+
+
+    # idealmente va chiamata da privmsg(), in modo che ogni
+    # Pinolo.brainSaveLimit salvi il brain.
+    def brainDamage(self):
+	self.brainCounter += 1
+	if self.brainCounter > Pinolo.brainSaveLimit:
+	    log.msg("Autosaving brain after %i privmsgs" % (self.brainCounter))
+	    mh_python.cleanup()
+	    self.brainCounter = 0
+
+
     def privmsg(self, user, channel, msg):
         user = user.split('!', 1)[0]
-	ircnet = self.factory.config['name']
 
-	log.msg("[%s] <%s> %s" % (ircnet, user, msg))
-
-	if user == 'pynolo' or re.match("^pynolo[:,]\s+", msg):
-	    return
+	# early maintenance
+	self.brainDamage()
 
 	if msg.startswith('!'):
-	    if msg == '!quit':
-		if user != 'sand':
-		    return
-		print "quitto"
-		self.factory.padre.spegni_tutto()
-		return
-
-	    elif msg.startswith('!q'):
-		quote_id = re.findall("^!q (\d+)", msg)
-		if len(quote_id) > 0:
-		    log.msg("Dovrei cercare: %s" % (quote_id[0]))
-		    (id, quote) = self.factory.padre.dbh.get_quote(quote_id[0])
-		else:
-		    (id, quote) = self.factory.padre.dbh.get_quote()
-		self.msg(channel, "%s: %s" % (id, quote))
-
-	    elif msg.startswith('!salvatutto'):
-		mh_python.cleanup()
-		log.msg("Salvo il cervello MegaHAL")
-
-	    elif msg.startswith('!addq'):
-		if ircnet != 'azzurra':
-		    self.msg(channel, "%s: qui non posso." % (user))
-		    return
-		m = re.findall('^!addq (.*)', msg)
-		if len(m) > 0:
-		    id = self.factory.padre.dbh.add_quote(user, m.pop())
-		    self.msg(channel, "%s: aggiunto il quote %s" % (user, id))
-		else:
-		    self.msg(channel, "%s: ma de che?")
+	    self.cmdHandler(user, channel, msg)
 
 	elif msg.startswith(self.nickname):
-	    # XXX strippo il mio nickname. controllare regexp.
-	    msg = re.sub("^%s\s*[:,]\s+" % (self.nickname), "", msg)
-	    msg = utils.clean_irc(msg)
-	    sentence = mh_python.doreply(msg)
+	    # strippo self.nickname da inizio riga
+	    msg = re.sub("^%s" % (self.nickname), '', msg)
+	    # ed eventuali [:;,] a eseguire (tipo: "pinolo: ehy")
+	    msg = re.sub("^[:;,]\s*", '', msg)
 
-	    if sentence:
-		sentence = sentence.encode('utf-8')
-		log.msg("sentence: %s" % (sentence))
-		self.msg(channel, "%s: %s" % (user, sentence))
-	    else:
-		replies = (
-			"pinot di pinolo",
-			"sugo di cazzo?",
-			"cazzoddio",
-			"non ho capito",
-			"non voglio capirti",
-			"mi stai sul cazzo",
-			"odio l'olio",
-			"famose na canna",
-			"sono nato per deficere",
-			"mi sto cagando addosso"
-		)
-		self.msg(channel, "%s: %s" % (user, random.choice(replies)))
+	    msg = utils.clean_irc(msg)
+	    sentence = self.fixMegahalReply(mh_python.doreply(msg))
+	    log.msg("sentence: %s" % (sentence))
+	    self.msg(channel, "%s: %s" % (user, sentence))
 	
 	else:
+	    # impara, ma non i messaggi del server o cio' che appare su #core
 	    if msg.startswith('***') or channel == '#core':
 		return
 	    msg = utils.clean_irc(msg)
 	    mh_python.learn(msg)
 
+	    # e in caso PARLA PURE! (15% di possibilita')
+	    if random.randint(1, 100) > 85:
+		reply = self.fixMegahalReply(mh_python.doreply(msg))
+		self.msg(channel, reply)
+
+    def fixMegahalReply(self, reply):
+	old_reply = reply
+	try:
+	    reply = reply.encode('utf-8')
+	except:
+	    reply = old_reply
+
+	return reply
+
+
+    def cmdHandler(self, user, channel, msg):
+	command = msg.split(" ")[0]
+
+	if command == '!quit':
+	    if user == 'sand':
+		log.msg("!quit received!")
+		    self.factory.padre.spegni_tutto()
+
+	elif command == '!q':
+	    quote_id = re.findall("^!q (\d+)", msg)
+	    if len(quote_id) > 0:
+		log.msg("Dovrei cercare: %s" % (quote_id[0]))
+		(id, quote) = self.factory.padre.dbh.get_quote(quote_id[0])
+		reply = "%i - %s" % (int(id), quote)
+	    else:
+		reply = "ma che cazzo me stai a chiede??"
+
+	    self.msg(channel, "%s: %s" % (user, reply))
+
+	elif command == '!salvatutto':
+	    mh_python.cleanup()
+	    log.msg("Salvo il cervello MegaHAL")
+
+	elif command == '!addq':
+	    if self.factory.config['name'] != 'azzurra':
+		reply = "%s: qui non posso."
+	    else:
+		m = re.findall('^!addq (.*)', msg)
+		if len(m) > 0:
+		    id = self.factory.padre.dbh.add_quote(user, m.pop())
+		    reply = "aggiunto il quote %i!" % (int(id))
+		else:
+		    reply = "%s: ma de che?"
+
+	else:
+	    reply = random.choice(Pinolo.dumbReplies)
+
+	self.msg(channel, "%s: %s" % (user, reply))
+    
 
 class PinoloFactory(protocol.ReconnectingClientFactory):
     """the factory
@@ -162,6 +206,3 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
 	print "Could not connect: %s" % (reason,)
 	protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
         #reactor.stop()
-
-if __name__ == "__main__":
-    print 'hi!'
