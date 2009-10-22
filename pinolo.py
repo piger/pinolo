@@ -18,7 +18,7 @@ from twisted.python import log
 from twisted.internet import ssl
 from irc import *
 import db
-import mh_python
+#import mh_python
 
 __version__ = '0.2.1a'
 __author__  = 'sand <daniel@spatof.org>'
@@ -64,7 +64,7 @@ class ConnManager():
 	self.figli.remove(figlio)
 	if len(self.figli) == 0:
 	    # salvo il brain megahal
-	    mh_python.cleanup()
+	    #mh_python.cleanup()
 	    reactor.stop()
 
 def main():
@@ -97,7 +97,7 @@ def main():
 	    servers.append(server)
 
     # Starto MegaHAL
-    mh_python.initbrain()
+    #mh_python.initbrain()
 
     c = ConnManager()
 

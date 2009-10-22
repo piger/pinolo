@@ -7,7 +7,7 @@ import re
 import db
 import random
 import utils
-import mh_python
+#import mh_python
 from time import sleep
 
 class Pinolo(irc.IRCClient):
@@ -90,7 +90,7 @@ class Pinolo(irc.IRCClient):
 	self.brainCounter += 1
 	if self.brainCounter > Pinolo.brainSaveLimit:
 	    log.msg("Autosaving brain after %i privmsgs" % (self.brainCounter))
-	    mh_python.cleanup()
+	    #mh_python.cleanup()
 	    self.brainCounter = 0
 
 
@@ -98,7 +98,7 @@ class Pinolo(irc.IRCClient):
         user = user.split('!', 1)[0]
 
 	# early maintenance
-	self.brainDamage()
+	#self.brainDamage()
 
 	if msg.startswith('!'):
 	    self.cmdHandler(user, channel, msg)
@@ -110,8 +110,10 @@ class Pinolo(irc.IRCClient):
 	    msg = re.sub("^[:;,]\s*", '', msg)
 
 	    msg = utils.clean_irc(msg)
-	    sentence = self.fixMegahalReply(mh_python.doreply(msg))
-	    log.msg("sentence: %s" % (sentence))
+	    #sentence = self.fixMegahalReply(mh_python.doreply(msg))
+	    #log.msg("sentence: %s" % (sentence))
+	    sentence = random.choice(Pinolo.dumbReplies)
+
 	    self.msg(channel, "%s: %s" % (user, sentence))
 	
 	else:
@@ -119,12 +121,12 @@ class Pinolo(irc.IRCClient):
 	    if msg.startswith('***') or channel == '#core':
 		return
 	    msg = utils.clean_irc(msg)
-	    mh_python.learn(msg)
+	    #mh_python.learn(msg)
 
 	    # e in caso PARLA PURE! (15% di possibilita')
-	    if random.randint(1, 100) > 85:
-		reply = self.fixMegahalReply(mh_python.doreply(msg))
-		self.msg(channel, reply)
+	    #if random.randint(1, 100) > 85:
+	    #    reply = self.fixMegahalReply(mh_python.doreply(msg))
+	    #    self.msg(channel, reply)
 
     def fixMegahalReply(self, reply):
 	old_reply = reply
@@ -156,7 +158,7 @@ class Pinolo(irc.IRCClient):
 	    reply = "%i - %s" % (id, quote)
 
 	elif command == '!salvatutto':
-	    mh_python.cleanup()
+	    #mh_python.cleanup()
 	    log.msg("Salvo il cervello MegaHAL")
 	    return
 
