@@ -15,6 +15,7 @@ if sys.version_info[0] * 10 + sys.version_info[1] < 25:
 
 import os
 from twisted.python import log
+from twisted.internet import ssl
 from irc import *
 import db
 import mh_python
@@ -100,10 +101,15 @@ def main():
 
     c = ConnManager()
 
+    # SSL
+    contextFactory = ssl.ClientContextFactory()
     for server in servers:
 	f = PinoloFactory(server)
 	c.aggiungi(f)
-	reactor.connectTCP(server['address'], server['port'], f)
+	if server['port'] == 9999:
+	    reactor.connectSSL(server['address'], server['port'], f, contextFactory)
+	else:
+	    reactor.connectTCP(server['address'], server['port'], f)
 
     reactor.run()
 

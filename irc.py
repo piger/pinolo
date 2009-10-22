@@ -8,9 +8,16 @@ import db
 import random
 import utils
 import mh_python
+from time import sleep
 
 class Pinolo(irc.IRCClient):
     """the protocol"""
+
+    def _get_nickname(self):
+	return self.factory.nickname
+
+    def _get_password(self):
+	return self.factory.password
 
     nickname = property(_get_nickname)
     password = property(_get_password)
@@ -47,14 +54,6 @@ class Pinolo(irc.IRCClient):
 	self.protocol.quit("!")
 
 
-    # XXX non so il perche' di questo magheggio.
-    def _get_nickname(self):
-	return self.factory.nickname
-
-    def _get_password(self):
-	return self.factory.password
-
-
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
 	self.factory.connection = self
@@ -70,6 +69,12 @@ class Pinolo(irc.IRCClient):
     
 
     def signedOn(self):
+	# IL MALEDETTO NICKSERV
+	if self.factory.config['name'] == 'azzurra':
+	    self.msg('NickServ', "IDENTIFY %s" %
+		    (self.factory.config['password']))
+	# XXX
+	sleep(2)
         for chan in self.factory.channels:
             self.join(chan)
         print "Signed on as %s." % (self.nickname)
@@ -136,13 +141,15 @@ class Pinolo(irc.IRCClient):
 	command = msg_split[0]
 	if len(msg_split) > 1:
 	    args = msg_split[1]
-	else
+	else:
 	    args = None
 
-	if command == '!quit':
-	    if user == 'sand':
-		log.msg("!quit received!")
-		    self.factory.padre.spegni_tutto()
+	reply = "??? bug, lamentati con sand!"
+
+	if command == '!quit' and user == 'sand':
+	    log.msg("!quit received!")
+	    self.factory.padre.spegni_tutto()
+	    return
 
 	elif command == '!q' or command == '!quote':
 	    (id, quote) = self.factory.padre.dbh.get_quote(args)
@@ -151,6 +158,7 @@ class Pinolo(irc.IRCClient):
 	elif command == '!salvatutto':
 	    mh_python.cleanup()
 	    log.msg("Salvo il cervello MegaHAL")
+	    return
 
 	elif command == '!addq':
 	    if self.factory.config['name'] != 'azzurra':
@@ -175,6 +183,11 @@ class Pinolo(irc.IRCClient):
 		    # XXX qui e solo qui uso return...
 		    return
 
+	elif command = '!joinall' and user == 'sand':
+	    for chan in self.factory.channels:
+		self.join(chan)
+	    return
+
 	else:
 	    reply = random.choice(Pinolo.dumbReplies)
 
@@ -193,6 +206,7 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
 	self.clienti = []
         self.channels = self.config['channels'][:]
         self.nickname = self.config['nickname']
+	self.password = self.config['password']
 	self.quitting = False
 	# per ReconnectingClientFactory
 	self.resetDelay()
