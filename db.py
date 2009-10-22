@@ -13,13 +13,6 @@ class DbHelper:
     """DbHelper
     Questa classe contiene le funzioni per manipolare il DB di quotes.
     """
-
-    def old_init(self, filename):
-	self.filename = filename
-	self.dbconn = sqlite.connect(self.filename)
-	self.dbconn.text_factory = str
-	self.dbcursor = self.dbconn.cursor()
-
     def __init__(self, quotes_db='quotes.db', markov_db='brain_new.db'):
 	self.quotes_db = quotes_db
 	self.markov_db = markov_db
@@ -62,12 +55,7 @@ class DbHelper:
 	pattern = '%' + pattern.strip() + '%'
 	t = (pattern,)
 	self.cursors['quotes'].execute("SELECT quoteid,quote FROM quotes WHERE quote LIKE ? ORDER BY RANDOM()", t)
-	results = self.cursors['quotes'].fetchall()
-	if len(results) < 1:
-	    print "La tua ricerca non ha dato risultati."
-	else:
-	    for result in results:
-		print "%i: %s" % (result[0], result[1])
+	return self.cursors['quotes'].fetchall()
 
     def shutdown(self):
 	self.dbconn.close()
