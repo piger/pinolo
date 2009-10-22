@@ -183,7 +183,7 @@ class Pinolo(irc.IRCClient):
 		    # XXX qui e solo qui uso return...
 		    return
 
-	elif command = '!joinall' and user == 'sand':
+	elif command == '!joinall' and user == 'sand':
 	    for chan in self.factory.channels:
 		self.join(chan)
 	    return
