@@ -35,8 +35,8 @@ class DbHelper:
 		self.cursors['quotes'].execute("SELECT quoteid,quote FROM quotes ORDER BY RANDOM() LIMIT 1")
 
 	except OverflowError:
-	    print "overlofw error!"
-	    return None
+	    log.msg("get_quote() con parametro non numerico")
+	    return (0, "ma che davero davero?")
 
 	return self.cursors['quotes'].fetchone()
 

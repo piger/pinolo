@@ -180,7 +180,8 @@ class Pinolo(irc.IRCClient):
 		if len(res) == 0:
 		    reply = "Non abbiamo trovato un cazzo! (cit.)"
 		else:
-		    for r in res:
+		    # ne fornisco solo 5, per ora.
+		    for r in res[:5]:
 			self.msg(channel, "%s: %i - %s" % (user, r[0], r[1]))
 		    # XXX qui e solo qui uso return...
 		    return
