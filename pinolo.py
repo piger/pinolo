@@ -19,7 +19,7 @@ from irc import *
 import db
 import mh_python
 
-__version__ = '0.2'
+__version__ = '0.2.1a'
 __author__  = 'sand <daniel@spatof.org>'
 #__all__	    = ['Pinolo']
 # http://effbot.org/pyref/__all__.htm
@@ -82,12 +82,17 @@ def main():
     for section in config.sections():
 	if section.startswith("Server"):
 	    server = {
-		    'name': config.get(section, 'name'),
+		    'name':	config.get(section, 'name'),
 		    'address':	config.get(section, 'server'),
 		    'port':	int(config.get(section, 'port')),
 		    'nickname':	config.get(section, 'nickname'),
-		    'channels':	config.get(section, 'channels').split(", ")
+		    'channels':	re.split("\s*,\s*", config.get(section, 'channels'))
 	    }
+	    try:
+		server['password'] = config.get(section, 'password')
+	    except:
+		server['password'] = None
+
 	    servers.append(server)
 
     # Starto MegaHAL

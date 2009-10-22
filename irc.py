@@ -13,12 +13,13 @@ class Pinolo(irc.IRCClient):
     """the protocol"""
 
     nickname = property(_get_nickname)
+    password = property(_get_password)
     realname = 'pinot di pinolo'
     username = 'suca'
     sourceURL = 'http://github.com/piger/pinolo'
 
     versionName = 'pinolo'
-    versionNum = '0.1.2'
+    versionNum = '0.2.1a'
     versionEnv = 'gnu\LINUCS'
     # Minimum delay between lines sent to the server. If None, no delay will be
     # imposed. (type: Number of Seconds. )
@@ -49,6 +50,9 @@ class Pinolo(irc.IRCClient):
     # XXX non so il perche' di questo magheggio.
     def _get_nickname(self):
 	return self.factory.nickname
+
+    def _get_password(self):
+	return self.factory.password
 
 
     def connectionMade(self):
