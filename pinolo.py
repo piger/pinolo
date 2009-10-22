@@ -6,7 +6,7 @@ import sys
 
 # verify python version is high enough
 if sys.version_info[0] * 10 + sys.version_info[1] < 25:
-    error = RuntimeError(u'pinolo requires python 2.5 or higher')
+    error = RuntimeError('pinolo requires python 2.5 or higher')
     if __name__ == '__main__':
         print >> sys.stderr, error
         sys.exit(1)
@@ -17,14 +17,14 @@ import os
 from twisted.python import log
 from irc import *
 import db
-from markov import Markov
+import mh_python
 
-__version__ = u'0.2'
-__author__  = u'sand <daniel@spatof.org>'
-#__all__	    = [u'Pinolo']
+__version__ = '0.2'
+__author__  = 'sand <daniel@spatof.org>'
+#__all__	    = ['Pinolo']
 # http://effbot.org/pyref/__all__.htm
 
-CHARSET	    = u'utf-8'
+CHARSET	    = 'utf-8'
 CONFIG	    = 'pinolo.cfg'
 QUOTESDB    = 'quotes.db'
 BRAINFILE   = 'brain.b'
@@ -39,7 +39,6 @@ class ConnManager():
 	"""Inizializza lo "storage" delle Factory"""
 	self.figli = []
 	self.dbh = db.DbHelper("quotes.db")
-	self.brain = Markov(brain_file=BRAINFILE)
 
     def aggiungi(self, f):
 	"""Aggiunge una factory alla lista, e imposta l'attributo
@@ -63,7 +62,8 @@ class ConnManager():
 	e se questa e' l'ultima, stoppa il reactor."""
 	self.figli.remove(figlio)
 	if len(self.figli) == 0:
-	    self.brain.dump_brain()
+	    # salvo il brain megahal
+	    mh_python.cleanup()
 	    reactor.stop()
 
 def main():
@@ -90,6 +90,9 @@ def main():
 	    }
 	    servers.append(server)
 
+    # Starto MegaHAL
+    mh_python.initbrain()
+
     c = ConnManager()
 
     for server in servers:
@@ -100,5 +103,5 @@ def main():
     reactor.run()
 
 # start
-if __name__ == u'__main__':
+if __name__ == '__main__':
     sys.exit(main())
