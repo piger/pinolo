@@ -128,23 +128,21 @@ class Pinolo(irc.IRCClient):
 
 
     def cmdHandler(self, user, channel, msg):
-	command = msg.split(" ")[0]
+	msg_split = msg.split(" ", 1)
+	command = msg_split[0]
+	if len(msg_split) > 1:
+	    args = msg_split[1]
+	else
+	    args = None
 
 	if command == '!quit':
 	    if user == 'sand':
 		log.msg("!quit received!")
 		    self.factory.padre.spegni_tutto()
 
-	elif command == '!q':
-	    quote_id = re.findall("^!q (\d+)", msg)
-	    if len(quote_id) > 0:
-		log.msg("Dovrei cercare: %s" % (quote_id[0]))
-		(id, quote) = self.factory.padre.dbh.get_quote(quote_id[0])
-		reply = "%i - %s" % (int(id), quote)
-	    else:
-		reply = "ma che cazzo me stai a chiede??"
-
-	    self.msg(channel, "%s: %s" % (user, reply))
+	elif command == '!q' or command == '!quote':
+	    (id, quote) = self.factory.padre.dbh.get_quote(args)
+	    reply = "%i - %s" % (id, quote)
 
 	elif command == '!salvatutto':
 	    mh_python.cleanup()
@@ -154,12 +152,24 @@ class Pinolo(irc.IRCClient):
 	    if self.factory.config['name'] != 'azzurra':
 		reply = "%s: qui non posso."
 	    else:
-		m = re.findall('^!addq (.*)', msg)
-		if len(m) > 0:
-		    id = self.factory.padre.dbh.add_quote(user, m.pop())
-		    reply = "aggiunto il quote %i!" % (int(id))
-		else:
+		if args == None:
 		    reply = "%s: ma de che?"
+		else:
+		    id = self.factory.padre.dbh.add_quote(user, args)
+		    reply = "aggiunto il quote %i!" % (id)
+
+	elif command == '!s':
+	    if args == None:
+		reply = "Che cosa vorresti cercare?"
+	    else:
+		res = self.factory.padre.dbh.search_quote(args)
+		if len(res) == 0:
+		    reply = "Non abbiamo trovato un cazzo! (cit.)"
+		else:
+		    for r in res:
+			self.msg(channel, "%s: %i - %s" % (user, r[0], r[1]))
+		    # XXX qui e solo qui uso return...
+		    return
 
 	else:
 	    reply = random.choice(Pinolo.dumbReplies)
