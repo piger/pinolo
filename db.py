@@ -47,7 +47,7 @@ class DbHelper:
 	now = strftime("%Y-%m-%d")
 	quote = utils.unicodize(quote)
 	self.cursors['quotes'].execute("INSERT INTO quotes(quote, author, data) VALUES (?, ?, ?)", (quote, author, now))
-	self.dbconn.commit()
+	self.q_dbconn.commit()
 	return self.cursors['quotes'].lastrowid
 
     def search_quote(self, pattern):
@@ -58,7 +58,7 @@ class DbHelper:
 	return self.cursors['quotes'].fetchall()
 
     def shutdown(self):
-	self.dbconn.close()
+	self.q_dbconn.close()
 
 if __name__ == '__main__':
     import sys
