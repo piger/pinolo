@@ -158,7 +158,7 @@ class Pinolo(irc.IRCClient):
 	    return
 
 	elif command == '!q' or command == '!quote':
-	    if not re.match("\d+", args):
+	    if args != None and not re.match("\d+$", args):
 		reply = "aridaje... la sintassi e': !q <id numerico>"
 	    else:
 		(id, quote) = self.factory.padre.dbh.get_quote(args)
