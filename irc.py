@@ -110,8 +110,7 @@ class Pinolo(irc.IRCClient):
 	    msg = re.sub("^[:;,]\s*", '', msg)
 
 	    if msg.startswith('!'):
-		self.msg(channel, "%s: i comandi vanno dati senza invocarmi
-		direttamente. sai, sono timido." % (user))
+		self.msg(channel, "%s: i comandi vanno dati senza invocarmi direttamente. sai, sono timido." % (user))
 		return
 
 	    msg = utils.clean_irc(msg)
