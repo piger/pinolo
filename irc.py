@@ -109,6 +109,11 @@ class Pinolo(irc.IRCClient):
 	    # ed eventuali [:;,] a eseguire (tipo: "pinolo: ehy")
 	    msg = re.sub("^[:;,]\s*", '', msg)
 
+	    if msg.startswith('!'):
+		self.msg(channel, "%s: i comandi vanno dati senza invocarmi
+		direttamente. sai, sono timido." % (user))
+		return
+
 	    msg = utils.clean_irc(msg)
 	    #sentence = self.fixMegahalReply(mh_python.doreply(msg))
 	    #log.msg("sentence: %s" % (sentence))
@@ -154,8 +159,11 @@ class Pinolo(irc.IRCClient):
 	    return
 
 	elif command == '!q' or command == '!quote':
-	    (id, quote) = self.factory.padre.dbh.get_quote(args)
-	    reply = "%i - %s" % (id, quote)
+	    if not re.match("\d+", args):
+		reply = "aridaje... la sintassi e': !q <id numerico>"
+	    else:
+		(id, quote) = self.factory.padre.dbh.get_quote(args)
+		reply = "%i - %s" % (id, quote)
 
 	elif command == '!salvatutto':
 	    #mh_python.cleanup()
