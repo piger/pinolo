@@ -201,7 +201,11 @@ class Pinolo(irc.IRCClient):
 	else:
 	    reply = random.choice(Pinolo.dumbReplies)
 
-	self.msg(channel, "%s: %s" % (user, reply))
+        if channel == self.nickname:
+            # Private message (query)
+            self.msg(user, "%s", reply)
+        else:
+            self.msg(channel, "%s: %s" % (user, reply))
     
 
 class PinoloFactory(protocol.ReconnectingClientFactory):
