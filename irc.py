@@ -203,7 +203,7 @@ class Pinolo(irc.IRCClient):
 
         if channel == self.nickname:
             # Private message (query)
-            self.msg(user, "%s", reply)
+            self.msg(user, "%s" % (reply,))
         else:
             self.msg(channel, "%s: %s" % (user, reply))
     
