@@ -51,15 +51,12 @@ class Pinolo(irc.IRCClient):
             "mi sto cagando addosso"
     )
 
-
-    def stopConnection(self):
-        log.msg("lo muoio in automatico")
-        #irc.IRCClient.quit("dice che devo mori'!")
-        self.protocol.quit("!")
-
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
         self.factory.connection = self
+
+        # per ReconnectingClientFactory
+        self.factory.resetDelay()
         print "Connected!"
 
     def connectionLost(self, reason):
@@ -73,7 +70,8 @@ class Pinolo(irc.IRCClient):
 
         # dice a ReconnectingClientFactory di non riconnettersi
         self.factory.stopTrying()
-        self.transport.loseConnection()
+        self.quit(reason)
+        #self.transport.loseConnection()
 
     def signedOn(self):
         # IL MALEDETTO NICKSERV
@@ -83,7 +81,7 @@ class Pinolo(irc.IRCClient):
 
             if self.factory.config['name'] == 'azzurra':
                 self.msg('NickServ', identify_txt)
-                sleep(2)
+                # sleep(2)
 
         print "Signed on as %s." % (self.nickname)
         #self.join_chans()
@@ -231,6 +229,17 @@ class Pinolo(irc.IRCClient):
         if user == 'sand':
             self.factory.padre.spegni_tutto()
 
+    # XXX TEST!
+    def get_my_config(self):
+        peer = self.transport.getPeer().host
+        return self.factory.proto2config(peer)
+
+    def get_name(self):
+        if self.name is None or self.name == "":
+            return self.transport.getPeer().host
+        else:
+            return self.name
+
 
 class PinoloFactory(protocol.ReconnectingClientFactory):
     """the factory
@@ -246,8 +255,6 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
         self.nickname = self.config['nickname']
         self.password = self.config['password']
         self.quitting = False
-        # per ReconnectingClientFactory
-        self.resetDelay()
 
     def buildProtocol(self, addr):
         print "Connected to %s %s" % (addr.host, addr.port)
@@ -272,3 +279,25 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
         print "Could not connect: %s" % (reason,)
         protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
         #reactor.stop()
+
+class NewFactory(protocol.ReconnectingClientFactory):
+    def __init__(self, config):
+        self.connections = []
+        self.config = config
+
+    def buildProtocol(self, addr):
+        c = Pinolo()
+        c.factory = self
+        conf = self.proto2config(addr)
+        if conf is not None:
+            c.name = conf['name']
+
+        self.connections.append(c)
+
+    def proto2config(self, address):
+        """address sarebbe l'address del peer."""
+
+        for conf in self.config:
+            if conf['address'] == address:
+                return conf
+        return None
