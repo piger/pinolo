@@ -172,19 +172,18 @@ class Pinolo(irc.IRCClient):
 
         if cmd is None or cmd == '':
             return None
-        else:
-            try:
-                # supporto rozzo per gli alias
-                if fn_map.has_key(cmd):
-                    cmd = fn_map[cmd]
 
-                func = getattr(self, 'do_' + cmd)
-            except AttributeError:
-                self.reply_to(user, channel,
-                              "command not found.")
-                return None
+        # supporto rozzo per gli alias
+        if fn_map.has_key(cmd):
+            cmd = fn_map[cmd]
 
-            return func(user, channel, arg)
+        try:
+            func = getattr(self, 'do_' + cmd)
+        except AttributeError:
+            self.reply_to(user, channel, "command not found.")
+            return None
+
+        return func(user, channel, arg)
 
     def do_quote(self, user, channel, arg):
         if arg is not None and not re.match('\d+$', arg):
