@@ -60,13 +60,13 @@ class Pinolo(irc.IRCClient):
         print "Connected!"
         # inizializzo il counter per salvare il brain
         self.brainCounter = 0
-    
+
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
         self.factory.connection = None
         print "connection lost!"
-    
+
 
     def signedOn(self):
         # IL MALEDETTO NICKSERV
@@ -78,7 +78,7 @@ class Pinolo(irc.IRCClient):
         for chan in self.factory.channels:
             self.join(chan)
         print "Signed on as %s." % (self.nickname)
-    
+
 
     def joined(self, channel):
         print "Joined %s." % (channel)
@@ -119,7 +119,7 @@ class Pinolo(irc.IRCClient):
             sentence = random.choice(Pinolo.dumbReplies)
 
             self.msg(channel, "%s: %s" % (user, sentence))
-        
+
         else:
             # impara, ma non i messaggi del server o cio' che appare su #core
             if msg.startswith('***') or channel == '#core':
@@ -206,7 +206,7 @@ class Pinolo(irc.IRCClient):
             self.msg(user, "%s" % (reply,))
         else:
             self.msg(channel, "%s: %s" % (user, reply))
-    
+
 
 class PinoloFactory(protocol.ReconnectingClientFactory):
     """the factory

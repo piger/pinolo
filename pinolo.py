@@ -14,8 +14,8 @@ if sys.version_info[0] * 10 + sys.version_info[1] < 25:
         raise error
 
 import os
-from twisted.python import log
-from twisted.internet import ssl
+# from twisted.python import log
+# from twisted.internet import ssl
 
 from irc import *
 import db
@@ -84,7 +84,7 @@ def parse_options():
     return options, args
 
 def main():
-    from ConfigParser import ConfigParser, NoOptionError
+    from ConfigParser import SafeConfigParser, NoOptionError
     from re import split
 
     servers = []
@@ -92,9 +92,9 @@ def main():
     options, args = parse_options()
 
     # enable twisted own logging system
-    log.startLogging(sys.stdout)
+    # log.startLogging(sys.stdout)
 
-    config = ConfigParser()
+    config = SafeConfigParser()
     config.read(options.config_file)
 
     for section in config.sections():
@@ -102,17 +102,20 @@ def main():
             server = {
                     'name':     config.get(section, 'name'),
                     'address':  config.get(section, 'server'),
-                    'port':     int(config.get(section, 'port')),
+                    'port':     config.getint(section, 'port')),
                     'nickname': config.get(section, 'nickname'),
                     'channels': re.split("\s*,\s*", config.get(section, 'channels'))
             }
-            try:
+            if config.has_option(section, 'password'):
+                print "Ha password"
                 server['password'] = config.get(section, 'password')
-            except NoOptionError:
+            else:
+                print "Non ha password"
                 server['password'] = None
 
             servers.append(server)
 
+    return
     # Starto MegaHAL
     #mh_python.initbrain()
 
