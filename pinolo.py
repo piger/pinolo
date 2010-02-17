@@ -27,7 +27,7 @@ __author__  = 'sand <daniel@spatof.org>'
 # http://effbot.org/pyref/__all__.htm
 
 CHARSET     = 'utf-8'
-CONFIG      = 'pinolo.cfg'
+DEFAULT_CONFIG_FILE = 'pinolo.cfg'
 QUOTESDB    = 'quotes.db'
 BRAINFILE   = 'brain.b'
 
@@ -68,16 +68,31 @@ class ConnManager():
             #mh_python.cleanup()
             reactor.stop()
 
+def parse_options():
+    from optparse import OptionParser
+
+    usage = "Usage: %prog [-c config.cfg]"
+    description = 'A stupid and blasphemous IRC bot'
+    prog = 'pynolo'
+    op = OptionParser(usage=usage, description=description,
+                      version="%prog " + __version__, prog=prog)
+    op.add_option('-c', '--config', action='store', dest='config_file',
+                  type='string', help='Custom configuration file.',
+                  default=DEFAULT_CONFIG_FILE, metavar='FILE')
+
+    options, args = op.parse_args()
+    return options, args
+
 def main():
-    import ConfigParser
+    from ConfigParser import ConfigParser, NoOptionError
     from re import split
 
-    # start logging
-    log.startLogging(sys.stdout)
+    options, args = parse_options()
 
-    defaultConfigFile = 'pinolo.cfg'
-    config = ConfigParser.ConfigParser()
-    config.read(defaultConfigFile)
+    # log.startLogging(sys.stdout)
+
+    config = ConfigParser()
+    config.read(options.config_file)
 
     servers = []
 
@@ -92,7 +107,7 @@ def main():
             }
             try:
                 server['password'] = config.get(section, 'password')
-            except:
+            except NoOptionError:
                 server['password'] = None
 
             servers.append(server)
@@ -102,16 +117,23 @@ def main():
 
     c = ConnManager()
 
-    # SSL
-    contextFactory = ssl.ClientContextFactory()
     for server in servers:
         f = PinoloFactory(server)
         c.aggiungi(f)
-        if server['port'] == 9999:
-            reactor.connectSSL(server['address'], server['port'], f, contextFactory)
-        else:
-            reactor.connectTCP(server['address'], server['port'], f)
 
+        # SSL
+        if server['port'] == 9999:
+            # ispirato da:
+            # http://books.google.it/books?id=Fm5kw3lZ7zEC&pg=PA112&lpg=PA112&dq=ClientContextFactory&source=bl&ots=mlx8EdNiTS&sig=WfqDy9SztfB9xx1JQnxicdouhW0&hl=en&ei=OjF8S7_XBsyh_AayiuH5BQ&sa=X&oi=book_result&ct=result&resnum=7&ved=0CB4Q6AEwBg#v=onepage&q=ClientContextFactory&f=false
+            # uso un ClientContextFactory() per ogni connessione.
+            reactor.connectSSL(server['address'],
+                               server['port'],
+                               f,
+                               ssl.ClientContextFactory())
+        else:
+            reactor.connectTCP(server['address'],
+                               server['port'],
+                               f)
     reactor.run()
 
 # start
