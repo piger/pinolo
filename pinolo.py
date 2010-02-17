@@ -69,6 +69,7 @@ class ConnManager():
             #mh_python.cleanup()
             reactor.stop()
 
+
 def parse_options():
     from optparse import OptionParser
 
@@ -87,7 +88,7 @@ def parse_options():
 class ConfigFileError(Exception): pass
 
 def main():
-    from ConfigParser import SafeConfigParser, NoOptionError
+    from ConfigParser import SafeConfigParser
     from re import split
 
     servers = []
@@ -106,18 +107,21 @@ def main():
     for section in config.sections():
         if section.startswith("Server"):
             server = {}
+
             for op in ops:
                 if config.has_option(section, op):
                     server[op] = config.get(section, op)
                 else:
                     if op == 'password':
-                        # set server['password'] = None
+                        # server['password'] = None
                         server[op] = None
                     else:
                         raise(ConfigFileError, "Error: missing mandatory option: %s" % op)
 
+            # formatto le opzioni
             server['channels'] = re.split("\s*,\s*", server['channels'])
             server['port'] = int(server['port'])
+
             servers.append(server)
 
     from pprint import pprint

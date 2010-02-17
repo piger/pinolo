@@ -9,6 +9,9 @@ import random
 import utils
 #import mh_python
 from time import sleep
+import string
+
+VALID_CMD_CHARS = string.ascii_letters + string.digits + '_'
 
 class Pinolo(irc.IRCClient):
     """the protocol"""
@@ -141,6 +144,80 @@ class Pinolo(irc.IRCClient):
 
         return reply
 
+    # NEW CODE
+    def parse_line(self, line):
+        """Parse a line looking for commands.
+
+        Copiato molto da Cmd().
+        """
+
+        line = line.strip()
+        if not line:
+            return None, None, line
+
+        if not line.startswith('!') or len(line) == 1:
+            # not a command
+            return None, None, line
+        else:
+            line = line[1:]
+
+        i, n = 0, len(line)
+        while i < n and line[i] in VALID_CMD_CHARS:
+            i = i+1
+
+        cmd, arg = line[:i], line[i:].strip()
+        return cmd, arg, line
+
+    def one_cmd(self, user, channel, line):
+        cmd, arg, line = self.parse_line(line)
+
+        # cmd alias
+        fn_map = {
+            'q': 'quote',
+            's': 'search',
+        }
+
+        # empty line
+        if not line:
+            return None
+
+        if cmd is None or cmd == '':
+            return None
+        else:
+            try:
+                # supporto rozzo per gli alias
+                if fn_map.has_key(cmd):
+                    cmd = fn_map[cmd]
+
+                func = getattr(self, 'do_' + cmd)
+            except AttributeError:
+                return None
+            return func(user, channel, arg)
+
+    def do_quote(self, user, channel, arg):
+        if arg is not None and not re.match('\d+$', arg):
+            reply = "aridaje... la sintassi e': !q <id numerico>"
+        else:
+            (q_id, q_txt) = self.factory.padre.dbh.get_quote(arg)
+            reply = "%i - %s" % (q_id, q_txt)
+
+        if channel == self.nickname:
+            # Private message (query)
+            self.msg(user, "%s" % (reply,))
+        else:
+            self.msg(channel, "%s: %s" % (user, reply))
+
+        self.reply_to(user, channel, reply)
+
+    def reply_to(self, user, channel, reply):
+        if channel == self.nickname:
+            # private message
+            self.msg(user, reply)
+        else:
+            # public message
+            self.msg(channel, "%s: %s" % (user, reply))
+
+    # END OF NEW CODE
 
     def cmdHandler(self, user, channel, msg):
         msg_split = msg.split(" ", 1)
