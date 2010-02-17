@@ -11,6 +11,8 @@ import utils
 from time import sleep
 import string
 
+from pprint import pprint
+
 VALID_CMD_CHARS = string.ascii_letters + string.digits + '_'
 
 class Pinolo(irc.IRCClient):
@@ -31,11 +33,10 @@ class Pinolo(irc.IRCClient):
     versionName = 'pinolo'
     versionNum = '0.2.1a'
     versionEnv = 'gnu\LINUCS'
+
     # Minimum delay between lines sent to the server. If None, no delay will be
     # imposed. (type: Number of Seconds. )
-    # lineRate = 1
-    # ogni quanti privmsg va salvato il brain ?
-    brainSaveLimit = 50
+    lineRate = 1
 
     dumbReplies = (
             "pinot di pinolo",
@@ -56,95 +57,78 @@ class Pinolo(irc.IRCClient):
         #irc.IRCClient.quit("dice che devo mori'!")
         self.protocol.quit("!")
 
-
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
         self.factory.connection = self
         print "Connected!"
-        # inizializzo il counter per salvare il brain
-        self.brainCounter = 0
-
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
         self.factory.connection = None
         print "connection lost!"
 
+    def clean_quit(self, reason=None):
+        if reason is None:
+            reason = "ATTUO IL DE CESSO DE BOCCA"
+
+        # dice a ReconnectingClientFactory di non riconnettersi
+        self.factory.stopTrying()
+        self.transport.loseConnection()
 
     def signedOn(self):
         # IL MALEDETTO NICKSERV
-        if self.factory.config['name'] == 'azzurra':
-            self.msg('NickServ', "IDENTIFY %s" %
-                    (self.factory.config['password']))
-        # XXX
-        sleep(2)
+        ns_pass = self.factory.config['password']
+        if ns_pass is not None:
+            identify_txt = "IDENTIFY " + ns_pass
+
+            if self.factory.config['name'] == 'azzurra':
+                self.msg('NickServ', identify_txt)
+                sleep(2)
+
+        print "Signed on as %s." % (self.nickname)
+        #self.join_chans()
+        reactor.callLater(2, self.join_chans)
+
+    def join_chans(self):
         for chan in self.factory.channels:
             self.join(chan)
-        print "Signed on as %s." % (self.nickname)
-
 
     def joined(self, channel):
         print "Joined %s." % (channel)
 
-
-    # idealmente va chiamata da privmsg(), in modo che ogni
-    # Pinolo.brainSaveLimit salvi il brain.
-    def brainDamage(self):
-        self.brainCounter += 1
-        if self.brainCounter > Pinolo.brainSaveLimit:
-            log.msg("Autosaving brain after %i privmsgs" % (self.brainCounter))
-            #mh_python.cleanup()
-            self.brainCounter = 0
-
+    def kickedFrom(self, channel, kicker, message):
+        self.join(channel)
+        self.reply_to(kicker, channel,
+                      "6 kattiv0!!1")
 
     def privmsg(self, user, channel, msg):
         user = user.split('!', 1)[0]
 
-        # early maintenance
-        #self.brainDamage()
-
         if msg.startswith('!'):
-            self.cmdHandler(user, channel, msg)
+            self.one_cmd(user, channel, msg)
 
         elif msg.startswith(self.nickname):
             # strippo self.nickname da inizio riga
-            msg = re.sub("^%s" % (self.nickname), '', msg)
+            msg = msg.replace(self.nickname, '', 1)
             # ed eventuali [:;,] a eseguire (tipo: "pinolo: ehy")
             msg = re.sub("^[:;,]\s*", '', msg)
 
             if msg.startswith('!'):
-                self.msg(channel, "%s: i comandi vanno dati senza invocarmi direttamente. sai, sono timido." % (user))
-                return
+                self.reply_to(user, channel,
+                              "i comandi vanno dati direttamente in canale, "\
+                              "senza il mio nome davanti, perche' sono emo.")
+            else:
+                self.reply_to(user, channel,
+                              random.choice(Pinolo.dumbReplies))
 
-            msg = utils.clean_irc(msg)
-            #sentence = self.fixMegahalReply(mh_python.doreply(msg))
-            #log.msg("sentence: %s" % (sentence))
-            sentence = random.choice(Pinolo.dumbReplies)
-
-            self.msg(channel, "%s: %s" % (user, sentence))
-
+    def reply_to(self, user, channel, reply):
+        if channel == self.nickname:
+            # private message
+            self.msg(user, reply)
         else:
-            # impara, ma non i messaggi del server o cio' che appare su #core
-            if msg.startswith('***') or channel == '#core':
-                return
-            msg = utils.clean_irc(msg)
-            #mh_python.learn(msg)
+            # public message
+            self.msg(channel, "%s: %s" % (user, reply))
 
-            # e in caso PARLA PURE! (15% di possibilita')
-            #if random.randint(1, 100) > 85:
-            #    reply = self.fixMegahalReply(mh_python.doreply(msg))
-            #    self.msg(channel, reply)
-
-    def fixMegahalReply(self, reply):
-        old_reply = reply
-        try:
-            reply = reply.encode('utf-8')
-        except:
-            reply = old_reply
-
-        return reply
-
-    # NEW CODE
     def parse_line(self, line):
         """Parse a line looking for commands.
 
@@ -155,7 +139,7 @@ class Pinolo(irc.IRCClient):
         if not line:
             return None, None, line
 
-        if not line.startswith('!') or len(line) == 1:
+        if not line.startswith('!'):
             # not a command
             return None, None, line
         else:
@@ -166,6 +150,11 @@ class Pinolo(irc.IRCClient):
             i = i+1
 
         cmd, arg = line[:i], line[i:].strip()
+
+        # Diciamo che e' meglio arg None che valorizzato a ""
+        if arg == '':
+            arg = None
+
         return cmd, arg, line
 
     def one_cmd(self, user, channel, line):
@@ -191,7 +180,10 @@ class Pinolo(irc.IRCClient):
 
                 func = getattr(self, 'do_' + cmd)
             except AttributeError:
+                self.reply_to(user, channel,
+                              "command not found.")
                 return None
+
             return func(user, channel, arg)
 
     def do_quote(self, user, channel, arg):
@@ -201,88 +193,44 @@ class Pinolo(irc.IRCClient):
             (q_id, q_txt) = self.factory.padre.dbh.get_quote(arg)
             reply = "%i - %s" % (q_id, q_txt)
 
-        if channel == self.nickname:
-            # Private message (query)
-            self.msg(user, "%s" % (reply,))
-        else:
-            self.msg(channel, "%s: %s" % (user, reply))
-
         self.reply_to(user, channel, reply)
 
-    def reply_to(self, user, channel, reply):
-        if channel == self.nickname:
-            # private message
-            self.msg(user, reply)
+    def do_addq(self, user, channel, arg):
+        if arg is None:
+            self.reply_to(user, channel,
+                          "ao' ma de che?")
+
+        elif self.factory.config['name'] != 'azzurra':
+            self.reply_to(user, channel, "qui non posso :|")
+
         else:
-            # public message
-            self.msg(channel, "%s: %s" % (user, reply))
+            q_id = self.factory.padre.dbh.add_quote(user, arg)
+            self.reply_to(user, channel,
+                          "aggiunto il quote %i!" % q_id)
 
-    # END OF NEW CODE
-
-    def cmdHandler(self, user, channel, msg):
-        msg_split = msg.split(" ", 1)
-        command = msg_split[0]
-        if len(msg_split) > 1:
-            args = msg_split[1]
-        else:
-            args = None
-
-        reply = "??? bug, lamentati con sand!"
-
-        if command == '!quit' and user == 'sand':
-            log.msg("!quit received!")
-            self.factory.padre.spegni_tutto()
+    def do_search(self, user, channel, arg):
+        if arg is None:
+            self.reply_to(user, channel,
+                          "Che cosa vorresti cercare?")
             return
 
-        elif command == '!q' or command == '!quote':
-            if args != None and not re.match("\d+$", args):
-                reply = "aridaje... la sintassi e': !q <id numerico>"
-            else:
-                (id, quote) = self.factory.padre.dbh.get_quote(args)
-                reply = "%i - %s" % (id, quote)
+        res = self.factory.padre.dbh.search_quote(arg)
+        if len(res) == 0:
+            self.reply_to(user, channel,
+                          "Non abbiamo trovato un cazzo! (cit.)")
+        else:
+            for r in res[:5]:
+                self.reply_to(user, channel,
+                              "%i - %s" % (r[0], r[1]))
 
-        elif command == '!salvatutto':
-            #mh_python.cleanup()
-            log.msg("Salvo il cervello MegaHAL")
-            return
-
-        elif command == '!addq':
-            if self.factory.config['name'] != 'azzurra':
-                reply = "%s: qui non posso."
-            else:
-                if args == None:
-                    reply = "%s: ma de che?"
-                else:
-                    id = self.factory.padre.dbh.add_quote(user, args)
-                    reply = "aggiunto il quote %i!" % (id)
-
-        elif command == '!s':
-            if args == None:
-                reply = "Che cosa vorresti cercare?"
-            else:
-                res = self.factory.padre.dbh.search_quote(args)
-                if len(res) == 0:
-                    reply = "Non abbiamo trovato un cazzo! (cit.)"
-                else:
-                    # ne fornisco solo 5, per ora.
-                    for r in res[:5]:
-                        self.msg(channel, "%s: %i - %s" % (user, r[0], r[1]))
-                    # XXX qui e solo qui uso return...
-                    return
-
-        elif command == '!joinall' and user == 'sand':
+    def do_joinall(self, user, channel, arg):
+        if user == 'sand':
             for chan in self.factory.channels:
                 self.join(chan)
-            return
 
-        else:
-            reply = random.choice(Pinolo.dumbReplies)
-
-        if channel == self.nickname:
-            # Private message (query)
-            self.msg(user, "%s" % (reply,))
-        else:
-            self.msg(channel, "%s: %s" % (user, reply))
+    def do_quit(self, user, channel, arg):
+        if user == 'sand':
+            self.factory.padre.spegni_tutto()
 
 
 class PinoloFactory(protocol.ReconnectingClientFactory):
