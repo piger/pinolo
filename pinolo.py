@@ -87,14 +87,15 @@ def main():
     from ConfigParser import ConfigParser, NoOptionError
     from re import split
 
+    servers = []
+
     options, args = parse_options()
 
-    # log.startLogging(sys.stdout)
+    # enable twisted own logging system
+    log.startLogging(sys.stdout)
 
     config = ConfigParser()
     config.read(options.config_file)
-
-    servers = []
 
     for section in config.sections():
         if section.startswith("Server"):
