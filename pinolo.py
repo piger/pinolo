@@ -14,8 +14,9 @@ if sys.version_info[0] * 10 + sys.version_info[1] < 25:
         raise error
 
 import os
-# from twisted.python import log
-# from twisted.internet import ssl
+from pprint import pprint
+from twisted.python import log
+from twisted.internet import ssl
 
 from irc import *
 import db
@@ -83,6 +84,8 @@ def parse_options():
     options, args = op.parse_args()
     return options, args
 
+class ConfigFileError(Exception): pass
+
 def main():
     from ConfigParser import SafeConfigParser, NoOptionError
     from re import split
@@ -92,30 +95,34 @@ def main():
     options, args = parse_options()
 
     # enable twisted own logging system
-    # log.startLogging(sys.stdout)
+    log.startLogging(sys.stdout)
 
     config = SafeConfigParser()
     config.read(options.config_file)
 
+    ops = [ 'name', 'address', 'port', 'nickname',
+           'channels', 'password', ]
+
     for section in config.sections():
         if section.startswith("Server"):
-            server = {
-                    'name':     config.get(section, 'name'),
-                    'address':  config.get(section, 'server'),
-                    'port':     config.getint(section, 'port')),
-                    'nickname': config.get(section, 'nickname'),
-                    'channels': re.split("\s*,\s*", config.get(section, 'channels'))
-            }
-            if config.has_option(section, 'password'):
-                print "Ha password"
-                server['password'] = config.get(section, 'password')
-            else:
-                print "Non ha password"
-                server['password'] = None
+            server = {}
+            for op in ops:
+                if config.has_option(section, op):
+                    server[op] = config.get(section, op)
+                else:
+                    if op == 'password':
+                        # set server['password'] = None
+                        server[op] = None
+                    else:
+                        raise(ConfigFileError, "Error: missing mandatory option: %s" % op)
 
+            server['channels'] = re.split("\s*,\s*", server['channels'])
+            server['port'] = int(server['port'])
             servers.append(server)
 
-    return
+    from pprint import pprint
+    pprint(servers)
+
     # Starto MegaHAL
     #mh_python.initbrain()
 
