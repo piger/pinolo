@@ -135,9 +135,12 @@ def main():
             # ispirato da:
             # http://books.google.it/books?id=Fm5kw3lZ7zEC&pg=PA112&lpg=PA112&dq=ClientContextFactory&source=bl&ots=mlx8EdNiTS&sig=WfqDy9SztfB9xx1JQnxicdouhW0&hl=en&ei=OjF8S7_XBsyh_AayiuH5BQ&sa=X&oi=book_result&ct=result&resnum=7&ved=0CB4Q6AEwBg#v=onepage&q=ClientContextFactory&f=false
             # uso un ClientContextFactory() per ogni connessione.
-            reactor.connectSSL(address, port, f, ssl.ClientContextFactory())
+            moo = reactor.connectSSL(address, port, f, ssl.ClientContextFactory())
         else:
-            reactor.connectTCP(address, port, f)
+            moo = reactor.connectTCP(address, port, f)
+
+        # moo.name = "%s:%i" % (address, port)
+        moo.name = servers[(address, port)]['name']
 
     reactor.run()
 

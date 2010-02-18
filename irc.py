@@ -15,6 +15,7 @@ from pprint import pprint
 
 VALID_CMD_CHARS = string.ascii_letters + string.digits + '_'
 
+
 class Pinolo(irc.IRCClient):
     """the protocol"""
 
@@ -25,7 +26,9 @@ class Pinolo(irc.IRCClient):
         return self._get_config()['password']
 
     def _get_config(self):
-        return self.factory.config_from_name(self.name)
+        #return self.factory.config_from_name(self.name)
+        name = self.transport.connector.name
+        return self.factory.config_from_name(name)
 
     nickname = property(_get_nickname)
     password = property(_get_password)
@@ -41,6 +44,8 @@ class Pinolo(irc.IRCClient):
     # imposed. (type: Number of Seconds. )
     lineRate = 1
 
+    joined_channels = []
+
     dumbReplies = (
             "pinot di pinolo",
             "sugo di cazzo?",
@@ -55,9 +60,18 @@ class Pinolo(irc.IRCClient):
     )
 
     def connectionMade(self):
-        irc.IRCClient.connectionMade(self)
+        """Called when a connection is made.
 
-        self.factory.clients.append(self)
+        This may be considered the initializer of the protocol, because it is
+        called when the connection is completed. For clients, this is called
+        once the connection to the server has been established; for servers,
+        this is called after an accept() call stops blocking and a socket has
+        been received. If you need to send any greeting or initial message, do
+        it here. 
+        """
+
+        irc.IRCClient.connectionMade(self)
+        # self.factory.clients.append(self)
 
         # per ReconnectingClientFactory
         self.factory.resetDelay()
@@ -100,16 +114,31 @@ class Pinolo(irc.IRCClient):
         for chan in self._get_config()['channels']:
             self.join(chan)
 
+        reactor.callLater(10, self.check_channels)
+
+    def check_channels(self):
+        channels = self._get_config()['channels']
+        for channel in channels:
+            if channel not in self.joined_channels:
+                self.join(channel)
+        reactor.callLater(10, self.check_channels)
+
     def joined(self, channel):
         log.msg("Joined %s." % (channel))
+        self.joined_channels.append(channel)
 
     def kickedFrom(self, channel, kicker, message):
+        self.joined_channels.remove(channel)
+
         self.join(channel)
         self.reply_to(kicker, channel,
                       "6 kattiv0!!1")
 
     def privmsg(self, user, channel, msg):
         user = user.split('!', 1)[0]
+
+        # qui potrei "impacchettare":
+        request = dict(user=user, channel=channel, msg=msg)
 
         if msg.startswith('!'):
             self.one_cmd(user, channel, msg)
@@ -192,6 +221,10 @@ class Pinolo(irc.IRCClient):
 
         return func(user, channel, arg)
 
+    def do_dimmi(self, user, channel, arg):
+        self.reply_to(user, channel,
+                      "Io sono %s" % self.transport.connector.name)
+
     def do_quote(self, user, channel, arg):
         if arg is not None and not re.match('\d+$', arg):
             reply = "aridaje... la sintassi e': !q <id numerico>"
@@ -236,37 +269,28 @@ class Pinolo(irc.IRCClient):
 
     def do_quit(self, user, channel, arg):
         if user == 'sand':
-            self.clean_quit()
+            if arg == 'all':
+                for client in self.factory.clients:
+                    client.clean_quit()
+            else:
+                self.clean_quit()
 
     # XXX TEST!
-    def get_my_config(self):
-        peer = self.transport.getPeer().host
-        return self.factory.proto2config(peer)
+    def id_conn(self):
+        """Ritorna una tuple(remote.addr, remote.port, local.addr, local.port)"""
 
-    def get_name(self):
-        if self.name is None or self.name == "":
-            return self.transport.getPeer().host
-        else:
-            return self.name
+        peer = self.transport.getPeer()
+        host = self.transport.getHost()
+        return (peer.host, peer.port, host.host, host.port)
 
 
 class PinoloFactory(protocol.ReconnectingClientFactory):
-    """the factory
-    - ricorda che ha .padre!
-    """
-
     #protocol = Pinolo
 
     def __init__(self, config):
         self.config = config
         self.clients = []
         self.dbh = db.DbHelper("quotes.db")
-
-    def get_config(self, address, port):
-        for a, p in self.config.keys():
-            if address == a and port == p:
-                return self.config[(a, p)]
-        return None
 
     def config_from_name(self, name):
         for a, p in self.config.keys():
@@ -277,16 +301,24 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
 
     def buildProtocol(self, addr):
         log.msg("Connected to %s %s" % (addr.host, addr.port))
-        config = self.get_config(addr.host, addr.port)
+        #config = self.get_config(addr.host, addr.port)
         c = Pinolo()
         c.factory = self
-        c.name = config['name']
+
+        self.clients.append(c)
+
+        # XXX In questo momento Protocol.transport e' None !
+        if c.transport is not None:
+            log.msg("NANO NANO: " + c.transport.getPeer().host)
+
+        #c.name = config['name']
         return c
 
     def clientConnectionLost(self, connector, reason):
         log.msg("Lost connection: %s" % reason)
         protocol.ReconnectingClientFactory.clientConnectionLost(self, connector,
                                                                 reason)
+
         if len(self.clients) == 0:
             reactor.stop()
 

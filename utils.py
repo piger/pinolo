@@ -20,10 +20,10 @@ def clean_irc(msg):
 def unicodize(s):
     """thx _ale"""
     for enc in ['ascii', 'utf-8', 'iso-8859-15', 'iso-8859-1']:
-	try:
-	    return unicode(s, enc)
-	except UnicodeDecodeError:
-	    continue
+        try:
+            return unicode(s, enc)
+        except UnicodeDecodeError:
+            continue
     return s
 
 if __name__ == '__main__':
