@@ -6,7 +6,7 @@ import sys
 
 # verify python version is high enough
 if sys.version_info[0] * 10 + sys.version_info[1] < 25:
-    error = RuntimeError(u'pinolo requires python 2.5 or higher')
+    error = RuntimeError('pinolo requires python 2.5 or higher')
     if __name__ == '__main__':
         print >> sys.stderr, error
         sys.exit(1)
@@ -14,18 +14,21 @@ if sys.version_info[0] * 10 + sys.version_info[1] < 25:
         raise error
 
 import os
+from pprint import pprint
 from twisted.python import log
+from twisted.internet import ssl
+
 from irc import *
 import db
-from markov import Markov
+#import mh_python
 
-__version__ = u'0.2'
-__author__  = u'sand <daniel@spatof.org>'
-#__all__	    = [u'Pinolo']
+__version__ = '0.2.1a'
+__author__  = 'sand <daniel@spatof.org>'
+#__all__            = ['Pinolo']
 # http://effbot.org/pyref/__all__.htm
 
-CHARSET	    = u'utf-8'
-CONFIG	    = 'pinolo.cfg'
+CHARSET     = 'utf-8'
+DEFAULT_CONFIG_FILE = 'pinolo.cfg'
 QUOTESDB    = 'quotes.db'
 BRAINFILE   = 'brain.b'
 
@@ -36,69 +39,108 @@ class ConnManager():
     """
 
     def __init__(self):
-	"""Inizializza lo "storage" delle Factory"""
-	self.figli = []
-	self.dbh = db.DbHelper("quotes.db")
-	self.brain = Markov(brain_file=BRAINFILE)
+        """Inizializza lo "storage" delle Factory"""
+        self.figli = []
+        self.dbh = db.DbHelper("quotes.db")
 
     def aggiungi(self, f):
-	"""Aggiunge una factory alla lista, e imposta l'attributo
-	"padre" a se stesso; in questo modo ogni factory puo'
-	chiamare il connection manager."""
-	self.figli.append(f)
-	f.padre = self
+        """Aggiunge una factory alla lista, e imposta l'attributo
+        "padre" a se stesso; in questo modo ogni factory puo'
+        chiamare il connection manager."""
+        self.figli.append(f)
+        f.padre = self
 
     def spegni_tutto(self):
-	"""Per ogni figlio (Factory) e per ogni sua connessione
-	(Protocol) chiama il metodo spegni().
-	E' lo shutdown globale chiamato da un protocol."""
-	for f in self.figli:
-	    f.quitting = True
-	    for c in f.clienti:
-		c.quit("ME LO HAN DETTO!")
+        """Per ogni figlio (Factory) e per ogni sua connessione
+        (Protocol) chiama il metodo spegni().
+        E' lo shutdown globale chiamato da un protocol."""
+        for f in self.figli:
+            f.quitting = True
+            for c in f.clienti:
+                c.quit("HO DISOBBEDITO E QUINDI SCHIATTO!")
 
     def spegnimi(self, figlio):
-	"""Questo viene chiamato da una Factory quando tutte le sue
-	connessioni sono terminate. Elimina la Factory dalla lista,
-	e se questa e' l'ultima, stoppa il reactor."""
-	self.figli.remove(figlio)
-	if len(self.figli) == 0:
-	    self.brain.dump_brain()
-	    reactor.stop()
+        """Questo viene chiamato da una Factory quando tutte le sue
+        connessioni sono terminate. Elimina la Factory dalla lista,
+        e se questa e' l'ultima, stoppa il reactor."""
+        self.figli.remove(figlio)
+        if len(self.figli) == 0:
+            # salvo il brain megahal
+            #mh_python.cleanup()
+            reactor.stop()
+
+
+def parse_options():
+    from optparse import OptionParser
+
+    usage = "Usage: %prog [-c config.cfg]"
+    description = 'A stupid and blasphemous IRC bot'
+    prog = 'pynolo'
+    op = OptionParser(usage=usage, description=description,
+                      version="%prog " + __version__, prog=prog)
+    op.add_option('-c', '--config', action='store', dest='config_file',
+                  type='string', help='Custom configuration file.',
+                  default=DEFAULT_CONFIG_FILE, metavar='FILE')
+
+    options, args = op.parse_args()
+    return options, args
+
+class ConfigFileError(Exception): pass
+
+def get_option(config, section, name):
+    if config.has_option(section, name):
+        return config.get(section, name)
+    else:
+        raise(ConfigFileError,
+              "Missing option in [%s]: %s" % (section, name))
 
 def main():
-    import ConfigParser
+    from ConfigParser import SafeConfigParser
     from re import split
 
-    # start logging
+    servers = {}
+
+    options, args = parse_options()
+
+    # enable twisted own logging system
     log.startLogging(sys.stdout)
 
-    defaultConfigFile = 'pinolo.cfg'
-    config = ConfigParser.ConfigParser()
-    config.read(defaultConfigFile)
-
-    servers = []
+    config = SafeConfigParser()
+    config.read(options.config_file)
 
     for section in config.sections():
-	if section.startswith("Server"):
-	    server = {
-		    'name': config.get(section, 'name'),
-		    'address':	config.get(section, 'server'),
-		    'port':	int(config.get(section, 'port')),
-		    'nickname':	config.get(section, 'nickname'),
-		    'channels':	config.get(section, 'channels').split(", ")
-	    }
-	    servers.append(server)
+        if section.startswith("Server"):
+            address = get_option(config, section, 'address')
+            port = int(get_option(config, section, 'port'))
+            servers[(address, port)] = {}
+            srv_cfg = servers[(address, port)]
+            srv_cfg['address'] = address
+            srv_cfg['port'] = port
+            srv_cfg['channels'] = re.split('\s*,\s*',
+                                           get_option(config, section,
+                                                      'channels'))
+            srv_cfg['name'] = get_option(config, section, 'name')
+            srv_cfg['nickname'] = get_option(config, section,
+                                             'nickname')
+            if config.has_option(section, 'password'):
+                srv_cfg['password'] = get_option(config, section,
+                                                 'password')
+            else:
+                srv_cfg['password'] = None
 
-    c = ConnManager()
+    f = PinoloFactory(servers)
 
-    for server in servers:
-	f = PinoloFactory(server)
-	c.aggiungi(f)
-	reactor.connectTCP(server['address'], server['port'], f)
+    for address, port in servers:
+        if port == 9999:
+            # ispirato da:
+            # http://books.google.it/books?id=Fm5kw3lZ7zEC&pg=PA112&lpg=PA112&dq=ClientContextFactory&source=bl&ots=mlx8EdNiTS&sig=WfqDy9SztfB9xx1JQnxicdouhW0&hl=en&ei=OjF8S7_XBsyh_AayiuH5BQ&sa=X&oi=book_result&ct=result&resnum=7&ved=0CB4Q6AEwBg#v=onepage&q=ClientContextFactory&f=false
+            # uso un ClientContextFactory() per ogni connessione.
+            reactor.connectSSL(address, port, f, ssl.ClientContextFactory())
+        else:
+            reactor.connectTCP(address, port, f)
 
     reactor.run()
 
 # start
-if __name__ == u'__main__':
+if __name__ == '__main__':
     sys.exit(main())

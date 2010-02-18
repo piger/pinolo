@@ -9,14 +9,14 @@
 # http://uswaretech.com/blog/2009/06/pseudo-random-text-markov-chains-python/
 
 import random
-import pickle
+import cPickle as pickle
 import os
 import re
 from collections import defaultdict
 from utils import *
 
 class Markov(object):
-    def __init__(self, brain_file='brain.new',
+    def __init__(self, n=2, max_words=25, brain_file='brain.new',
 	    sample_text='/Users/sand/Downloads/i_promes.txt', autosave=50):
 	"""autosave = 0 per disattivare"""
 
@@ -26,6 +26,10 @@ class Markov(object):
 	self.autosave = autosave
 	self.counter = 0
 	self.stopwords = set([x.strip() for x in open("stopwords_it.txt")])
+	self.n = n
+	self.max_words = max_words
+	self.beginnings = []
+	self.ngrams = {}
 
 	if os.path.exists(self.brain_file):
 	    fd = open(self.brain_file, 'rb')
@@ -33,6 +37,9 @@ class Markov(object):
 	    fd.close()
 	else:
 	    self.learn_from_file(self.sample_text)
+
+    def tokenize(self, text):
+	return text.split(" ")
 
     def dump_brain(self):
 	fd = open(self.brain_file, 'wb')
@@ -76,6 +83,45 @@ class Markov(object):
 		self.counter = 0
 		self.dump_brain()
 
+    # hmbot
+    def createProbabilityHash(self, words):
+	numWords = len(words)
+	wordCount = {}
+	for word in words:
+	    if wordCount.has_key(word):
+		wordCount[word] += 1
+	    else:
+		wordCount[word] = 1
+
+	for word in wordCount.keys():
+	    wordCount[word] /= 1.0 * numWords
+	return wordCount
+
+	# mmm... XXX
+	# calcolarlo in fase di gen()erazione ?
+	# forse lento, ma almeno non perdo i valori originali
+
+    def new_learn(self, text):
+	tokens = self.tokenize(text)
+
+	# PULIRE IL TESTO!
+
+	if len(tokens) < self.n:
+	    return
+
+	# fare probability hash per questi ?
+	beginning = tuple(tokens[:self.n])
+	self.beginnings.append(beginning)
+
+	for i in range(len(tokens) - self.n):
+	    gram = tuple(tokens[i:i+self.n])
+	    next = tokens[i+self.n]
+
+	    if gram in self.ngrams:
+		self.ngrams[gram].append(next)
+	    else:
+		self.ngrams[gram] = [next]
+
     def gen(self, sample=None, max_words=20):
 	message = []
 
@@ -109,9 +155,11 @@ class Markov(object):
 class NewMarkov(object):
     def __init__(self, n=2, max=100):
 	self.n = n
-	self.ngrams = {}
+	#self.ngrams = {}
+	self.ngrams = defaultdict(list)
 	self.max = max
 	self.beginnings = []
+	self.stopwords = set([x.strip() for x in open("stopwords_it.txt")])
 
     def tokenize(self, text):
 	return text.split(" ")
@@ -132,10 +180,25 @@ class NewMarkov(object):
 	    gram = tuple(tokens[i:i+self.n])
 	    next = tokens[i+self.n]
 
-	    if gram in self.ngrams:
-		self.ngrams[gram].append(next)
-	    else:
-		self.ngrams[gram] = [next]
+	    self.ngrams[gram].append(next)
+	    #if gram in self.ngrams:
+	    #    self.ngrams[gram].append(next)
+	    #else:
+	    #    self.ngrams[gram] = [next]
+
+    def pulisci(self, text):
+	for pattern, repl in [
+		(r'(?<![:;=])[\(\)]', " "),
+		(r'["-]', " "),
+		(r'\s+:\s', ": "),
+		(r'\s+,\s', ", "),
+		(r'\s+\.\s', ". "),
+		(r'\s+\.+(?=\s|$)', '...'),
+		(r' +', " "),
+		(r'\.+', ".")
+		]:
+	    text = re.sub(pattern, repl, text)
+	return text
 
     def generate(self):
 	from random import choice
@@ -152,7 +215,19 @@ class NewMarkov(object):
 	    else:
 		break
 	output_str = self.concatenate(output)
+	if not output_str.endswith('.'):
+	    output_str += '.'
+
 	return output_str
+
+    def dump_brain(self):
+	fd = open("brain_new.b", "wb")
+	pickle.dump(self.ngrams, fd, pickle.HIGHEST_PROTOCOL)
+	fd.close()
+
+	fd = open("brain_new.n", "wb")
+	pickle.dump(self.beginnings, fd, pickle.HIGHEST_PROTOCOL)
+	fd.close()
 
 
 def usage():
@@ -160,17 +235,46 @@ def usage():
 
 if __name__ == '__main__':
     import getopt, sys
+    import time
 
     # new
-    p = NewMarkov(3)
-    fd = open('/Users/sand/Downloads/i_promes.txt', 'r')
-    for line in fd:
-	for sentence in re.split("\.{1,3}(?:\n|\s+)", line):
-	    p.feed(sentence)
+    p = NewMarkov(2)
+    #fd = open('/Users/sand/Downloads/i_promes.txt', 'r')
+    #for line in fd:
+    #    for sentence in re.split("\.{1,3}(?:\n|\s+)", line):
+    #        sentence = p.pulisci(sentence)
+    #        p.feed(sentence)
+    #fd.close()
+    #fd = open('/Users/sand/Downloads/retro.log', 'r')
+
+
+# NewMarkov
+    #i = 0
+    #fd = open('/tmp/porcoddio3.log', 'r')
+    #print "Inizio alle: " + time.strftime("%H:%M %d-%m-%y")
+    #for line in fd:
+    #    p.feed(p.pulisci(line))
+    #    i += 1
+    #    if i >= 1000:
+    #        print "1000"
+    #        i = 0
+    #fd.close()
+    #print "Inizio il dump alle: " + time.strftime("%H:%M %d-%m-%y")
+    #p.dump_brain()
+    print "Inizio il load 1 del brain alle: " + time.strftime("%H:%M %d-%m-%y")
+    fd = open("brain_new.b", "rb")
+    p.ngrams = pickle.load(fd)
     fd.close()
-    for i in range(5):
-	print p.generate()
-	print "-"
+
+    print "Inizio il load 2 del brain alle: " + time.strftime("%H:%M %d-%m-%y")
+    fd = open("brain_new.n", "rb")
+    p.beginnings = pickle.load(fd)
+    fd.close()
+
+    print "Inizio a generare tuo genero alle: " + time.strftime("%H:%M %d-%m-%y")
+    for i in range(10):
+        print p.generate()
+        print "-"
 
     sys.exit()
 
