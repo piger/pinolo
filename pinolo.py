@@ -87,11 +87,18 @@ def parse_options():
 
 class ConfigFileError(Exception): pass
 
+def get_option(config, section, name):
+    if config.has_option(section, name):
+        return config.get(section, name)
+    else:
+        raise(ConfigFileError,
+              "Missing option in [%s]: %s" % (section, name))
+
 def main():
     from ConfigParser import SafeConfigParser
     from re import split
 
-    servers = []
+    servers = {}
 
     options, args = parse_options()
 
@@ -101,54 +108,37 @@ def main():
     config = SafeConfigParser()
     config.read(options.config_file)
 
-    ops = [ 'name', 'address', 'port', 'nickname',
-           'channels', 'password', ]
-
     for section in config.sections():
         if section.startswith("Server"):
-            server = {}
+            address = get_option(config, section, 'address')
+            port = int(get_option(config, section, 'port'))
+            servers[(address, port)] = {}
+            srv_cfg = servers[(address, port)]
+            srv_cfg['address'] = address
+            srv_cfg['port'] = port
+            srv_cfg['channels'] = re.split('\s*,\s*',
+                                           get_option(config, section,
+                                                      'channels'))
+            srv_cfg['name'] = get_option(config, section, 'name')
+            srv_cfg['nickname'] = get_option(config, section,
+                                             'nickname')
+            if config.has_option(section, 'password'):
+                srv_cfg['password'] = get_option(config, section,
+                                                 'password')
+            else:
+                srv_cfg['password'] = None
 
-            for op in ops:
-                if config.has_option(section, op):
-                    server[op] = config.get(section, op)
-                else:
-                    if op == 'password':
-                        # server['password'] = None
-                        server[op] = None
-                    else:
-                        raise(ConfigFileError, "Error: missing mandatory option: %s" % op)
+    f = PinoloFactory(servers)
 
-            # formatto le opzioni
-            server['channels'] = re.split("\s*,\s*", server['channels'])
-            server['port'] = int(server['port'])
-
-            servers.append(server)
-
-    from pprint import pprint
-    pprint(servers)
-
-    # Starto MegaHAL
-    #mh_python.initbrain()
-
-    c = ConnManager()
-
-    for server in servers:
-        f = PinoloFactory(server)
-        c.aggiungi(f)
-
-        # SSL
-        if server['port'] == 9999:
+    for address, port in servers:
+        if port == 9999:
             # ispirato da:
             # http://books.google.it/books?id=Fm5kw3lZ7zEC&pg=PA112&lpg=PA112&dq=ClientContextFactory&source=bl&ots=mlx8EdNiTS&sig=WfqDy9SztfB9xx1JQnxicdouhW0&hl=en&ei=OjF8S7_XBsyh_AayiuH5BQ&sa=X&oi=book_result&ct=result&resnum=7&ved=0CB4Q6AEwBg#v=onepage&q=ClientContextFactory&f=false
             # uso un ClientContextFactory() per ogni connessione.
-            reactor.connectSSL(server['address'],
-                               server['port'],
-                               f,
-                               ssl.ClientContextFactory())
+            reactor.connectSSL(address, port, f, ssl.ClientContextFactory())
         else:
-            reactor.connectTCP(server['address'],
-                               server['port'],
-                               f)
+            reactor.connectTCP(address, port, f)
+
     reactor.run()
 
 # start

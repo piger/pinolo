@@ -19,10 +19,13 @@ class Pinolo(irc.IRCClient):
     """the protocol"""
 
     def _get_nickname(self):
-        return self.factory.nickname
+        return self._get_config()['nickname']
 
     def _get_password(self):
-        return self.factory.password
+        return self._get_config()['password']
+
+    def _get_config(self):
+        return self.factory.config_from_name(self.name)
 
     nickname = property(_get_nickname)
     password = property(_get_password)
@@ -53,16 +56,22 @@ class Pinolo(irc.IRCClient):
 
     def connectionMade(self):
         irc.IRCClient.connectionMade(self)
-        self.factory.connection = self
+
+        self.factory.clients.append(self)
 
         # per ReconnectingClientFactory
         self.factory.resetDelay()
-        print "Connected!"
+
+        config = self._get_config()
+        log.msg("Connected to %s:%i (Protocol)" % (config['address'],
+                                                   config['port']))
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)
-        self.factory.connection = None
-        print "connection lost!"
+        config = self._get_config()
+        log.msg("Connection lost from %s:%i (Protocol)" % (config['address'],
+                                                   config['port']))
+        self.factory.clients.remove(self)
 
     def clean_quit(self, reason=None):
         if reason is None:
@@ -75,24 +84,24 @@ class Pinolo(irc.IRCClient):
 
     def signedOn(self):
         # IL MALEDETTO NICKSERV
-        ns_pass = self.factory.config['password']
+        ns_pass = self._get_config()['password']
         if ns_pass is not None:
             identify_txt = "IDENTIFY " + ns_pass
 
-            if self.factory.config['name'] == 'azzurra':
+            if self._get_config()['name'] == 'azzurra':
                 self.msg('NickServ', identify_txt)
                 # sleep(2)
 
-        print "Signed on as %s." % (self.nickname)
+        log.msg("Signed on as %s." % (self.nickname))
         #self.join_chans()
         reactor.callLater(2, self.join_chans)
 
     def join_chans(self):
-        for chan in self.factory.channels:
+        for chan in self._get_config()['channels']:
             self.join(chan)
 
     def joined(self, channel):
-        print "Joined %s." % (channel)
+        log.msg("Joined %s." % (channel))
 
     def kickedFrom(self, channel, kicker, message):
         self.join(channel)
@@ -187,7 +196,7 @@ class Pinolo(irc.IRCClient):
         if arg is not None and not re.match('\d+$', arg):
             reply = "aridaje... la sintassi e': !q <id numerico>"
         else:
-            (q_id, q_txt) = self.factory.padre.dbh.get_quote(arg)
+            (q_id, q_txt) = self.factory.dbh.get_quote(arg)
             reply = "%i - %s" % (q_id, q_txt)
 
         self.reply_to(user, channel, reply)
@@ -197,11 +206,11 @@ class Pinolo(irc.IRCClient):
             self.reply_to(user, channel,
                           "ao' ma de che?")
 
-        elif self.factory.config['name'] != 'azzurra':
+        elif self._get_config()['name'] != 'azzurra':
             self.reply_to(user, channel, "qui non posso :|")
 
         else:
-            q_id = self.factory.padre.dbh.add_quote(user, arg)
+            q_id = self.factory.dbh.add_quote(user, arg)
             self.reply_to(user, channel,
                           "aggiunto il quote %i!" % q_id)
 
@@ -211,7 +220,7 @@ class Pinolo(irc.IRCClient):
                           "Che cosa vorresti cercare?")
             return
 
-        res = self.factory.padre.dbh.search_quote(arg)
+        res = self.factory.dbh.search_quote(arg)
         if len(res) == 0:
             self.reply_to(user, channel,
                           "Non abbiamo trovato un cazzo! (cit.)")
@@ -222,12 +231,12 @@ class Pinolo(irc.IRCClient):
 
     def do_joinall(self, user, channel, arg):
         if user == 'sand':
-            for chan in self.factory.channels:
+            for chan in self._get_config()['channels']:
                 self.join(chan)
 
     def do_quit(self, user, channel, arg):
         if user == 'sand':
-            self.factory.padre.spegni_tutto()
+            self.clean_quit()
 
     # XXX TEST!
     def get_my_config(self):
@@ -250,54 +259,41 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
 
     def __init__(self, config):
         self.config = config
-        self.clienti = []
-        self.channels = self.config['channels'][:]
-        self.nickname = self.config['nickname']
-        self.password = self.config['password']
-        self.quitting = False
+        self.clients = []
+        self.dbh = db.DbHelper("quotes.db")
+
+    def get_config(self, address, port):
+        for a, p in self.config.keys():
+            if address == a and port == p:
+                return self.config[(a, p)]
+        return None
+
+    def config_from_name(self, name):
+        for a, p in self.config.keys():
+            cfg = self.config[(a, p)]
+            if cfg['name'] == name:
+                return cfg
+        return None
 
     def buildProtocol(self, addr):
-        print "Connected to %s %s" % (addr.host, addr.port)
+        log.msg("Connected to %s %s" % (addr.host, addr.port))
+        config = self.get_config(addr.host, addr.port)
         c = Pinolo()
         c.factory = self
-        self.clienti.append(c)
+        c.name = config['name']
         return c
 
     def clientConnectionLost(self, connector, reason):
-        if self.quitting == False:
-            #connector.connect()
-            print "Lost connection (%s), reconnecting." % (reason,)
-            protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
-        else:
-            # qui dovrei controllare se ci sono altri "clienti" collegati,
-            # ma per ora evito
-            #if len(self.clienti) == 0:
-            #    self.padre.spegnimi(self)
-            self.padre.spegnimi(self)
+        log.msg("Lost connection: %s" % reason)
+        protocol.ReconnectingClientFactory.clientConnectionLost(self, connector,
+                                                                reason)
+        if len(self.clients) == 0:
+            reactor.stop()
 
+    # Una connessione fallita va sempre segnalata e ritentata.
     def clientConnectionFailed(self, connector, reason):
-        print "Could not connect: %s" % (reason,)
+        log.msg("Could not connect: %s" % reason)
         protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
-        #reactor.stop()
 
-class NewFactory(protocol.ReconnectingClientFactory):
-    def __init__(self, config):
-        self.connections = []
-        self.config = config
-
-    def buildProtocol(self, addr):
-        c = Pinolo()
-        c.factory = self
-        conf = self.proto2config(addr)
-        if conf is not None:
-            c.name = conf['name']
-
-        self.connections.append(c)
-
-    def proto2config(self, address):
-        """address sarebbe l'address del peer."""
-
-        for conf in self.config:
-            if conf['address'] == address:
-                return conf
-        return None
+    def stopFactory(self):
+        log.msg("bye bye!")
