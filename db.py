@@ -1,13 +1,86 @@
 #!/usr/bin/env python
-# vim: set fileencoding=utf-8 :
 
-#from pysqlite2 import dbapi2 as sqlite
-import sqlite3 as sqlite
-from time import strftime
+import time
+
 import utils
 
-# (a, b) -> c, d, e, f, g, h
-# SELECT word FROM followers WHERE follow_word = (a, b)
+from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, \
+DateTime, Binary, Text
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, relation, backref, mapper
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import func
+
+Base = declarative_base()
+
+# PASTE
+
+class Quote(Base):
+    __tablename__ = 'quotes'
+
+    quoteid = Column(Integer, primary_key=True)
+    quote = Column(String)
+    author = Column(String)
+    data = Column(String)
+
+    def __init__(self, quote, author, data=None):
+        self.quote = quote
+        self.author = author
+        if data is None:
+            data = time.strftime("%Y-%m-%d")
+        self.data = data
+
+    def __repr__(self):
+        return "<Quote('%s', '%s', '%s')>" % (self.quote,
+                                              self.author,
+                                              self.data)
+
+
+class SqlFairy():
+    def __init__(self, filename=None):
+        if filename is None:
+            filename = 'quotes.db'
+        db_url = 'sqlite:///' + filename
+        self.engine = create_engine(db_url, echo=True, convert_unicode=True)
+        Session = sessionmaker(bind=self.engine)
+        self.session = Session()
+
+    def add_quote(self, author, txt):
+        txt = utils.unicodize(txt)
+        try:
+            q = Quote(txt, author)
+            self.session.add(q)
+            self.session.commit()
+            return q.quoteid
+        except:
+            self.session.rollback()
+            return None
+
+    def random_quote(self):
+        q = self.session.query(Quote).order_by(func.random()).limit(1)
+        return (q.quoteid, q.quote)
+
+    def get_quote(self, search_id=None):
+        if search_id is not None:
+            q = self.session.query(Quote).filter_by(quoteid=search_id).first()
+        else:
+            q =\
+            self.session.query(Quote).order_by(func.random()).limit(1).first()
+
+        return q
+
+    def search_quote(self, pattern, limit=5):
+        # safe check contro me stesso
+        if limit > 10:
+            log.msg("limit > 10 e' MALE")
+            return None
+
+        q = self.session.query(Quote).filter(Quote.quote.like(pattern))
+        result_found = len(q.all())
+
+        return result_found, q[:limit]
+
+# END PASTE
 
 class DbHelper:
     """DbHelper
@@ -44,7 +117,7 @@ class DbHelper:
         """Inserisce una quote nel DB.
         ritorna un intero che rappresenta l'ID (SQL) della quote.
         """
-        now = strftime("%Y-%m-%d")
+        now = time.strftime("%Y-%m-%d")
         quote = utils.unicodize(quote)
         self.cursors['quotes'].execute("INSERT INTO quotes(quote, author, data) VALUES (?, ?, ?)", (quote, author, now))
         self.q_dbconn.commit()
@@ -59,19 +132,3 @@ class DbHelper:
 
     def shutdown(self):
         self.q_dbconn.close()
-
-if __name__ == '__main__':
-    import sys
-
-    dbh = DbHelper("quotes.db")
-    #dbh.add_quote("sand", u"perché porcoddio")
-    if len(sys.argv) > 1:
-        pattern = ' '.join(sys.argv[1:])
-        print "cerco: \"%s\"" % (pattern)
-        dbh.search_quote(pattern)
-    else:
-        print dbh.get_quote(1335)
-        res = dbh.get_quote(1335)[0]
-        print res
-        text = u"perché porcoddio"
-        assert res == text.encode('utf-8')

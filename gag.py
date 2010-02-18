@@ -6,6 +6,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, relation, backref, mapper
 from sqlalchemy.ext.declarative import declarative_base
 from pprint import pprint
+import random
+from sqlalchemy.sql.functions import random as sql_random
+from sqlalchemy import func
 
 Base = declarative_base()
 
@@ -42,3 +45,23 @@ new = Quote('test', 'sand', '01/04/1984 13:00')
 session.add(new)
 pprint(session.dirty)
 pprint(session.new)
+
+tot = random.randrange(0, session.query(Quote).count())
+print tot
+gnagna = session.query(Quote)[tot]
+print gnagna.quote
+
+print "GAG!"
+#semental = session.query(Quote).order_by(sql_random()).limit(1)
+semental = session.query(Quote).order_by(func.random()).limit(1)
+# pprint(semental.first())
+
+print "GOO!"
+for mm in semental:
+    print mm.quote
+
+
+qq = session.query(Quote)
+moo = qq.filter(Quote.quote.like('%porcoddio%'))
+for r in moo[:5]:
+    print "."

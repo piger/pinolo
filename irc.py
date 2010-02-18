@@ -158,6 +158,9 @@ class Pinolo(irc.IRCClient):
                               random.choice(Pinolo.dumbReplies))
 
     def reply_to(self, user, channel, reply):
+        # XXX cristo-u-ti-f8
+        reply = reply.encode('utf-8')
+
         if channel == self.nickname:
             # private message
             self.msg(user, reply)
@@ -229,10 +232,16 @@ class Pinolo(irc.IRCClient):
         if arg is not None and not re.match('\d+$', arg):
             reply = "aridaje... la sintassi e': !q <id numerico>"
         else:
-            (q_id, q_txt) = self.factory.dbh.get_quote(arg)
-            reply = "%i - %s" % (q_id, q_txt)
-
-        self.reply_to(user, channel, reply)
+            q = self.factory.dbh.get_quote(arg)
+            if q is None and arg is not None:
+                self.reply_to(user, channel,
+                              "quote %i non trovata" % int(arg))
+            elif q is None:
+                self.reply_to(user, channel,
+                              "ho tipo il db vuoto!?")
+            else:
+                self.reply_to(user, channel,
+                              "%i - %s" % (q.quoteid, q.quote))
 
     def do_addq(self, user, channel, arg):
         if arg is None:
@@ -253,14 +262,20 @@ class Pinolo(irc.IRCClient):
                           "Che cosa vorresti cercare?")
             return
 
-        res = self.factory.dbh.search_quote(arg)
-        if len(res) == 0:
+        # Per SQL LIKE = '%pattern%'
+        arg = '%' + arg + '%'
+
+        t, q = self.factory.dbh.search_quote(arg)
+        if t == 0:
             self.reply_to(user, channel,
                           "Non abbiamo trovato un cazzo! (cit.)")
-        else:
-            for r in res[:5]:
-                self.reply_to(user, channel,
-                              "%i - %s" % (r[0], r[1]))
+            return
+
+        self.reply_to(user, channel,
+                      "Search found %i results: (5 displayed)" % t)
+        for ss in q:
+            self.reply_to(user, channel,
+                          "%i - %s" % (ss.quoteid, ss.quote))
 
     def do_joinall(self, user, channel, arg):
         if user == 'sand':
@@ -290,7 +305,8 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
     def __init__(self, config):
         self.config = config
         self.clients = []
-        self.dbh = db.DbHelper("quotes.db")
+        #self.dbh = db.DbHelper("quotes.db")
+        self.dbh = db.SqlFairy('quotes.db')
 
     def config_from_name(self, name):
         for a, p in self.config.keys():
