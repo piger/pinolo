@@ -12,6 +12,7 @@ from time import sleep
 import string
 
 from pprint import pprint
+from prcd import prcd
 
 VALID_CMD_CHARS = string.ascii_letters + string.digits + '_'
 
@@ -276,6 +277,17 @@ class Pinolo(irc.IRCClient):
         for ss in q:
             self.reply_to(user, channel,
                           "%i - %s" % (ss.quoteid, ss.quote))
+
+    def do_prcd(self, user, channel, arg):
+        if arg is not None:
+            if arg not in prcd.categorie():
+                self.reply_to(user, channel,
+                              "categoria non trovata, PER GIOVE!")
+                return
+
+        cat, moccolo = prcd.a_caso(arg)
+        self.reply_to(user, channel,
+                      "%s [%s]" % (moccolo, cat))
 
     def do_joinall(self, user, channel, arg):
         if user == 'sand':

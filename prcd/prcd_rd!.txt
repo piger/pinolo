@@ -1,0 +1,221 @@
+
+;                           h  i  s  t  o  r  y
+;               ____                       ____  _       _ 
+;              |  _ \ ___  _ __ ___ ___   |  _ \(_) ___ | |
+;              | |_) / _ \| '__/ __/ _ \  | | | | |/ _ \| |
+;              |  __/ (_) | | | (_| (_) | | |_| | | (_) |_|
+;              |_|   \___/|_|  \___\___/  |____/|_|\___/(_)
+
+[1.96]
+
+  Ben sei mesi dall'ultima release, ma l'ammontare di bestemmie incluse non
+e' cosi' elevato. Molti problemi da parte mia, un po' di svacco, ad ogni
+modo lo spirito blasfemo resta vivo in tutti e si possono ancora
+raccogliere messi di bestemmie negli appositi canali :-)
+  Sfondato il muro delle 2000 bestemmie, tra poco anche quello dei 100
+bestemmiatori. PRCD continua, aiutatelo!
+  Nessuna variazione nella top ten, ma nella zona calda abbiamo un passo in
+avanti di cozak e di l3nna, ormai vicini all'entrata nel regno dei
+bestemmiatori. Dopo molto tempo si registra anche un buon numero di
+bestemmie di lupo alberto. Bene!
+
+                              -.-.-.-.-.-.-.-
+
+
+[1.95]
+  Una nuova release dopo ben 3 mesi, un bel po' di tempo. Il ritardo e'
+dovuto a problemi miei e anche a carestia generale. Ma giusto ieri su IRC
+ho raccolto almeno 40 bestemmie (ringrazio tutti i partecipanti alla
+infuocata serata) e ho completato cosi' il pacchetto di inserimenti (206
+nuove totali)!
+  Cose da segnalare: Scavalcamento di coney da parte di petoide e mia,
+con un nuovo high bestemmier, dunque. Tra le new entry sono da segnalarsi
+l3nna e indra, arrivati gia' a media classifica a ridosso dei top ten.
+
+                              -.-.-.-.-.-.-.-
+
+[1.94]
+  135 bestemmie incluse in questa versione. Non poche se si considera il
+poco tempo trascorso dall'ultima release. In questa versione appaiono gli
+indicatori di progresso per i bestemmiatori: ovverosia, prima della
+posizione attuale in classifica, ora appare la posizione precedente, o due
+trattini (--) se non si era gia' in classifica. In questo modo sara' piu'
+facile comprendere i "salti" e gli "scivolamenti" dei bestemmiatori a
+seconda della loro prolificita'.
+  Sottolineo le iniezioni di bestemmie apportate da Psicopatico
+(finalmente!) e da BBKaneda. Spero che non si tratti di un episodio
+isolato, e suggerisco a tutti di preparare dei porcodiff da inviarmi
+all'indirizzo che ho segnalato altrove in questo archivio.  Per via di
+questi afflussi, registro le seguenti novita' nella Top Ten:  Psicopatico
+entra addirittura al nono posto (a scapito di ANON1) e BBKaneda al decimo
+(a scapito di cozak).
+
+                              -.-.-.-.-.-.-.-
+
+[1.93]
+  Versione rilasciata in occasione del cyb3rm33t1ng del primo febbraio;
+160 bestemmie incluse circa, Grande passo avanti di XaMaD.
+
+                              -.-.-.-.-.-.-.-
+
+[1.92]
+  Ho ritrovato per vie incredibili la versione 1.27 di prcd, la nostalgia
+e' stata atroce!
+  In questa versione abbiamo un'inserimento di piu' di 200 bestemmie
+(dev'essere record personale di PRCD), con il ritorno di Coney e di Vcip,
+apprezzati da molti di noi, e l'entrata "in grande stile" di Sys64738.
+  In questa versione sono state separate alcune bestemmie a sfondo
+razzista, su decisione mia, di Coney e di altri, per preservare lo spirito
+critico e goliardico nei confronti di una scelta cosciente, proprio della
+bestemmia, dalla discriminazione razziale, che invece non ha nessuna
+giustificazione.
+  E' stato aperto un account apposito per prcd: prcd@freenet.hut.fi
+Siete pregati quindi di rivolgere li' i vostri commenti e contributi.
+
+                              -.-.-.-.-.-.-.-
+[1.91]
+  Le mie vacanze in terra di blasfemi hanno contribuito all'accumulo di alcune
+bestemmie, senza tralasciare l'ormai ovvia questua su IRC !
+  In piu', e' finalmente disponibile una versione multiporcodiale di PRCD,
+per amiga, in versione AmigaGuide; ma a differenza del precedente
+esperimento, e' provvista solo della schermata di main e richiama tutti i
+files nella directory (che devono essere quindi presenti), senza contenerli
+nel documento, semplificando quindi gli aggiornamenti.
+  Tra le novita' in high score table, abbiamo l'approdo di vcip al quinto
+posto assoluto e l'ingresso di un sacco di blasfemi (tra cui lobo
+direttamente al 20o posto).
+  Altre due novita': voglio sperimentare il "minuscolo" nelle bestemmie, mi
+attendo feedbacks di commento.. la seconda novita' e' l'inclusione, in
+questo archivio, del modulo di top/bottom 5% of prcd, al quale siete tutti
+tenuti a partecipare!
+
+                              -.-.-.-.-.-.-.-
+[1.90]
+  Corretti molti errori. Ho tolto 2 bestemmie e ne ho messe 50 circa. Ma
+l'avvenimento e'..
+  La CORREZIONE della High Score Table, con verifica TOTALE, che ha portato
+al primo posto (meritatissimo) di PETOIDE !
+
+                              -.-.-.-.-.-.-.-
+[1.89]
+  Molte bestemmie incluse.  IRC e' un ottimo canale e quando c'e'
+l'ispirazione, si reffa!
+  Introdotta l'anonimizzazione facoltativa di prcd:  chi vuole ora potra'
+avere il proprio nickname coperto da un nickname anonimo assegnato
+d'ufficio da me.
+  PRCD e' su internet (grazie all'ignoto benefattore), la homepage non ve
+la do :)
+  COZAK supera PSICOPATICO, e' il primo sorpasso nei primi dieci posti da
+tantissimo tempo. ho eliminato un paio di vecchie (e bruttine) bestemmie di
+coney e grizzly. Emergono Mindwarp e Sys64378 (o permutazioni) tra i new
+blasphemers. nient'altro da segnalare.
+
+                              -.-.-.-.-.-.-.-
+
+[1.88]
+  Alcune bestemmie, niente di nuovo
+
+                              -.-.-.-.-.-.-.-
+
+[1.87]
+  boh, non ricordo
+
+                              -.-.-.-.-.-.-.-
+
+[1.86]
+  C'e' poco da dire: PRCD_NET non si fa proprio :) prcd ha trovato zona di
+libero scambio altrove. La diffusione di PRCD, e il suo ampliamento, ha
+avuto grandissimo successo grazie anche alle amicizie su #cybernet.
+
+                              -.-.-.-.-.-.-.-
+
+[1.84]
+  PRCD_NET e' destinata a non avverarsi. Hyprcd e' assolutamente a zero.
+Pero' le bestemmie continuano a girare, e questo e' bene. PRCD e' stato
+sperimentato in formato .HLP e in formato .guide (amiga), ma senza uno
+script restano solo iniziative individuali.
+
+                              -.-.-.-.-.-.-.-
+
+[1.83]
+  Dopo il nullaosta di Coney, ho inserito finalmente la nuova sezione
+dedicata a Cristo, nella speranza che venga ampiamente utilizzata, ora
+ch'e' presente, da tutti i blasfemi. Il suo nome e' "prcd_cri.txt".
+
+                              -.-.-.-.-.-.-.-
+
+[1.82]
+  Dopo averci pensato su per un bel po' di volte, ho finalmente provveduto
+all'elenco ragionato delle bestemmie per persona, suddiviso nelle attuali
+aree d'interesse di PRCD, con la possibilita', avanti con il tempo, di
+aggiornarlo se verranno a crearsi nuove sezioni...
+  Nel frattempo ho fatto anche circolare alcune vecchie versioni del file.
+
+                              -.-.-.-.-.-.-.-
+
+[1.77]
+ PRCD ha cambiato, finalmente, look.
+ Il  pes(t)ante  e  rozzo  file  di  testo  iperlungo  e' diventato ora una
+sequenza  piu'  leggibile e divisa ad argomenti, pronta per essere navigata
+da qualunque software dedicato all'ipertesto in genere.  Eventuali progetti
+saranno portati avanti nell'immediato futuro.
+ I  62k  della  versione  1.77  di  PRCD  mi  hanno convinto che era ora di
+cambiare.    E   adesso   il   file   e'   diviso  in  varie  sezioni,  che
+provvisoriamente  sono  diventate 10.  E' stata adottata la dizione 8.3 per
+rispetto  verso  i  grandi  blasfemi  che  sono  purtroppo  ancora ancorati
+all'msdos,  augurandoci  che  cambieranno presto sistema (so che e' inutile
+sperarlo ma...).
+
+ I  files  sono  dei  "chop" dal Main_File_Bestemmie usato precedentemente,
+staccati in quest'ordine:
+
+prcd_int.txt			(Introduction)
+prcd_dio.txt			(Bestemmie contro dio)
+prcd_ges.txt			(Bestemmie contro gesu')
+prcd_mad.txt			(Bestemmie contro la madonna)
+prcd_pap.txt			(Bestemmie contro il papa)
+prcd_mtc.txt			(Bestemmie contro madre teresa di calcutta)
+prcd_vsf.txt			(Bestemmie varie a singola frase)
+prcd_vpf.txt			(Bestemmie varie a piu' frasi - poesie, etc)
+prcd_hst.txt			(High Score Table)
+prcd_out.txt			(Outroduction, testi finali, news)
+
+prcd_exe.bat			(batch file per riunire i singoli files)
+                                 in un singolo file chiamato PRCD_ALL.TXT)
+
+prcd_RD!.txt			(Read!, il testo che state leggendo)
+
+ Molte cose sono in cantiere e cerchero' di esporle il piu' a fondo
+possibile:
+
+
+ o Creazione di PRCD_NET, ossia di Purging Religion Center of Development.
+
+     Una rete condivisa con due bbs, e si spera con altre, che affronti in
+     modo diretto e aperto al pubblico il problema della religione e della
+     sua per certi versi inutile ingerenza nel nostro presente.
+
+ o Programmazione di Hyprcd
+
+     Questo e' il nostro progetto piu' ambizioso: un lettore ipertestuale
+     "ad hoc" per PRCD, con GUI, in due piattaforme: amiga e PC, o almeno
+     una gestione ipertestuale del file.
+
+ o Risistemazione dei PORCODIFF
+
+     Fino ad oggi il PORCODIFF e' il file di testo usato dai soci per
+     fornire al redattore grandi quantita' di bestemmie in breve tempo.
+     Siccome ci avviamo al rinnovamento della gestione dei files, sarebbe
+     molto piu' utile fornire i DIFF dei singoli files relativi ai gruppi
+     di bestemmie, e quindi dare il via al rinnovamento anche dei diff,
+     rendendoli multilivello, dal redattore agli utenti per l'aggiornamento
+     della loro raccolta preferita, e da essi al redattore per pratiche
+     d'archivio.
+
+ o Varie ed eventuali
+
+     Phalanx (io), Coney, Petoide e Grizzly ascolteranno volentieri le
+     vostre proposte. Contattate uno di essi per avere informazioni su
+     PRCD o sul bestemmiantesimo in generale.
+
+; EOF
