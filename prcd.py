@@ -6,7 +6,8 @@ import random
 
 PRCDPATH = './prcd/'
 SKIPFILES = [ 'prcd_int.txt', 'prcd_out.txt',
-             'prcd_rd!.txt', 'prcd_vpf.txt' ]
+             'prcd_rd!.txt', 'prcd_vpf.txt',
+             'prcd_hst.txt' ]
 
 class PathNotFoundError(Exception): pass
 
