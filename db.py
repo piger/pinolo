@@ -41,7 +41,7 @@ class SqlFairy():
         if filename is None:
             filename = 'quotes.db'
         db_url = 'sqlite:///' + filename
-        self.engine = create_engine(db_url, echo=True, convert_unicode=True)
+        self.engine = create_engine(db_url, echo=False, convert_unicode=True)
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
 
