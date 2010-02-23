@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, \
-DateTime, Binary, Text
+DateTime, Binary, Text, Unicode
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, relation, backref, mapper
 from sqlalchemy.ext.declarative import declarative_base
@@ -34,7 +34,8 @@ class Quote(Base):
 #  sqlite:///:memory: (or, sqlite://)
 #  sqlite:///relative/path/to/file.db
 #  sqlite:////absolute/path/to/file.db
-engine = create_engine('sqlite:///quotes.db', echo=True)
+engine = create_engine('sqlite:///quotes.db', echo=True, convert_unicode=True,
+                       encoding='utf-8')
 Session = sessionmaker(bind=engine)
 session = Session()
 # pprint(session.query(Quote).filter_by(quoteid=100).first())
@@ -62,6 +63,6 @@ for mm in semental:
 
 
 qq = session.query(Quote)
-moo = qq.filter(Quote.quote.like('%porcoddio%'))
+moo = qq.filter(Quote.quote.like('%valk%'))
 for r in moo[:5]:
     print "."
