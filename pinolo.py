@@ -22,7 +22,7 @@ from irc import *
 import db
 #import mh_python
 
-__version__ = '0.2.3b'
+__version__ = '0.2.4b'
 __author__  = 'sand <daniel@spatof.org>'
 #__all__            = ['Pinolo']
 # http://effbot.org/pyref/__all__.htm
