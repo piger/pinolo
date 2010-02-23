@@ -18,7 +18,7 @@ Base = declarative_base()
 class Quote(Base):
     __tablename__ = 'quotes'
 
-    quoteid = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)
     quote = Column(String)
     author = Column(String)
     data = Column(String)
@@ -41,7 +41,7 @@ class SqlFairy():
         if filename is None:
             filename = 'quotes.db'
         db_url = 'sqlite:///' + filename
-        self.engine = create_engine(db_url, echo=False, convert_unicode=True)
+        self.engine = create_engine(db_url, echo=False)
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
 
@@ -51,18 +51,18 @@ class SqlFairy():
             q = Quote(txt, author)
             self.session.add(q)
             self.session.commit()
-            return q.quoteid
+            return q.id
         except:
             self.session.rollback()
             return None
 
     def random_quote(self):
         q = self.session.query(Quote).order_by(func.random()).limit(1)
-        return (q.quoteid, q.quote)
+        return (q.id, q.quote)
 
     def get_quote(self, search_id=None):
         if search_id is not None:
-            q = self.session.query(Quote).filter_by(quoteid=search_id).first()
+            q = self.session.query(Quote).filter_by(id=search_id).first()
         else:
             q =\
             self.session.query(Quote).order_by(func.random()).limit(1).first()

@@ -242,7 +242,7 @@ class Pinolo(irc.IRCClient):
                               "ho tipo il db vuoto!?")
             else:
                 self.reply_to(user, channel,
-                              "%i - %s" % (q.quoteid, q.quote))
+                              "%i - %s" % (q.id, q.quote))
 
     def do_addq(self, user, channel, arg):
         if arg is None:
@@ -276,7 +276,7 @@ class Pinolo(irc.IRCClient):
                       "Search found %i results: (5 displayed)" % t)
         for ss in q:
             self.reply_to(user, channel,
-                          "%i - %s" % (ss.quoteid, ss.quote))
+                          "%i - %s" % (ss.id, ss.quote))
 
     def do_prcd(self, user, channel, arg):
         if arg is not None:
