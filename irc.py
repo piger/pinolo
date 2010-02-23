@@ -272,8 +272,14 @@ class Pinolo(irc.IRCClient):
                           "Non abbiamo trovato un cazzo! (cit.)")
             return
 
-        self.reply_to(user, channel,
-                      "Search found %i results: (5 displayed)" % t)
+        len_q = len(q)
+        if len_q > 5:
+            self.reply_to(user, channel,
+                          "Search found %i results (%i displayed):" % (t, len_q))
+        else:
+            self.reply_to(user, channel,
+                          "Search found %i results:" % t)
+
         for ss in q:
             self.reply_to(user, channel,
                           "%i - %s" % (ss.id, ss.quote))
