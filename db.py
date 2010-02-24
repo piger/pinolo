@@ -13,7 +13,6 @@ from sqlalchemy import func
 
 Base = declarative_base()
 
-# PASTE
 
 class Quote(Base):
     __tablename__ = 'quotes'
@@ -46,7 +45,9 @@ class SqlFairy():
         self.session = Session()
 
     def add_quote(self, author, txt):
-        txt = utils.unicodize(txt)
+        # NO!
+        # txt = utils.unicodize(txt)
+        txt = txt.encode('utf-8')
         try:
             q = Quote(txt, author)
             self.session.add(q)
@@ -80,8 +81,8 @@ class SqlFairy():
 
         return result_found, q[:limit]
 
-# END PASTE
 
+# La versione "vecchia", con pysqlite3
 class DbHelper:
     """DbHelper
     Questa classe contiene le funzioni per manipolare il DB di quotes.
