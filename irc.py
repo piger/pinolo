@@ -74,9 +74,6 @@ class Pinolo(irc.IRCClient):
         irc.IRCClient.connectionMade(self)
         # self.factory.clients.append(self)
 
-        # per ReconnectingClientFactory
-        self.factory.resetDelay()
-
         config = self._get_config()
         log.msg("Connected to %s:%i (Protocol)" % (config['address'],
                                                    config['port']))
@@ -341,9 +338,9 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
 
         self.clients.append(c)
 
-        # XXX In questo momento Protocol.transport e' None !
-        if c.transport is not None:
-            log.msg("NANO NANO: " + c.transport.getPeer().host)
+        # per ReconnectingClientFactory
+        # http://twistedmatrix.com/documents/current/core/howto/clients.html
+        self.resetDelay()
 
         #c.name = config['name']
         return c
