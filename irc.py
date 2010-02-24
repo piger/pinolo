@@ -263,8 +263,7 @@ class Pinolo(irc.IRCClient):
             return
 
         # Per SQL LIKE = '%pattern%'
-        # arg = u'%' + arg.encode('utf-8') + u'%'
-        arg = unicode("%%%s%%" % arg)
+        arg = u'%' + arg.encode('utf-8') + u'%'
 
         tot, query = self.factory.dbh.search_quote(arg)
         if tot == 0:
