@@ -257,13 +257,14 @@ class Pinolo(irc.IRCClient):
                           "aggiunto il quote %i!" % q_id)
 
     def do_search(self, user, channel, arg):
-        if arg is None:
+        if arg is None or arg == '':
             self.reply_to(user, channel,
                           "Che cosa vorresti cercare?")
             return
 
         # Per SQL LIKE = '%pattern%'
-        arg = '%' + arg + '%'
+        # arg = u'%' + arg.encode('utf-8') + u'%'
+        arg = unicode("%%%s%%" % arg)
 
         tot, query = self.factory.dbh.search_quote(arg)
         if tot == 0:
