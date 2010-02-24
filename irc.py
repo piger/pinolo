@@ -6,6 +6,7 @@ from twisted.python import log
 import re
 import db
 import random
+import subprocess
 import utils
 #import mh_python
 from time import sleep
@@ -13,7 +14,7 @@ import string
 import os
 
 from pprint import pprint
-from prcd import prcd
+from prcd import Prcd
 
 VALID_CMD_CHARS = string.ascii_letters + string.digits + '_'
 
@@ -270,27 +271,30 @@ class Pinolo(irc.IRCClient):
                           "Non abbiamo trovato un cazzo! (cit.)")
             return
 
+        msg = u''
         if tot > 5:
-            self.reply_to(user, channel,
-                          "Search found %i results (5 displayed):" % tot)
+            msg = u"Search found %i results (5 displayed):" % tot
+        elif tot == 1:
+            msg = u"Search found 1 result:"
         else:
-            self.reply_to(user, channel,
-                          "Search found %i results:" % tot)
+            msg = u"Search found %i results:" % tot
+
+        self.reply_to(user, channel, msg)
 
         for ss in query:
             self.reply_to(user, channel,
-                          "%i - %s" % (ss.id, ss.quote))
+                          u"%i - %s" % (ss.id, ss.quote))
 
     def do_prcd(self, user, channel, arg):
         if arg is not None:
-            if arg not in prcd.categorie():
+            if arg not in self.factory.prcd.categorie():
                 self.reply_to(user, channel,
-                              "categoria non trovata, PER GIOVE!")
+                              u"categoria non trovata, PER GIOVE!")
                 return
 
-        cat, moccolo = prcd.a_caso(arg)
+        cat, moccolo = self.factory.prcd.a_caso(arg)
         self.reply_to(user, channel,
-                      "%s [%s]" % (moccolo, cat))
+                      u"%s [%s]" % (moccolo, cat))
 
     def do_joinall(self, user, channel, arg):
         if user == 'sand':
@@ -306,17 +310,39 @@ class Pinolo(irc.IRCClient):
                 self.clean_quit()
 
     def do_PRCD(self, user, channel, arg):
+        shapes = [
+            'apt', 'bong', 'bud-frogs', 'bunny',
+            'cock', 'cower', 'default', 'duck',
+            'flaming-sheep', 'head-in', 'hellokitty',
+            'koala', 'moose', 'mutilated', 'satanic',
+            'sheep', 'small', 'sodomized', 'sodomized-sheep',
+            'suse', 'three-eyes', 'tux', 'udder',
+            'vader'
+        ]
+
+        cmd = '/usr/games/cowsay'
+
         if arg is not None:
-            if arg not in prcd.categorie():
+            if arg not in self.factory.prcd.categorie():
                 self.reply_to(user, channel,
                               "categoria non trovata, PER GIOVE!")
                 return
 
-        cat, moccolo = prcd.a_caso(arg)
-        fd = os.popen("/usr/games/cowsay -f sodomized '%s'" % moccolo)
-        goo = fd.read()
-        fd.close()
+        cat, moccolo = self.factory.prcd.a_caso(arg)
+        cmdline = [cmd, '-f', random.choice(shapes)]
+        pope = subprocess.Popen(cmdline,
+                                shell=False,
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                close_fds=True)
+        (oro, ano) = (pope.stdin, pope.stdout)
+        oro.write(moccolo)
+        oro.close()
+        goo = ano.read()
+
         for line in goo.split("\n"):
+            if line == '':
+                continue
             self.reply_to(user, channel, line)
 
     # XXX TEST!
@@ -336,6 +362,7 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
         self.clients = []
         #self.dbh = db.DbHelper("quotes.db")
         self.dbh = db.SqlFairy('quotes.db')
+        self.prcd = Prcd()
 
     def config_from_name(self, name):
         for a, p in self.config.keys():
