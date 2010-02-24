@@ -137,7 +137,6 @@ class Pinolo(irc.IRCClient):
     def privmsg(self, user, channel, msg):
         user = user.split('!', 1)[0]
 
-        log.msg(type(msg))
         # qui potrei "impacchettare":
         request = dict(user=user, channel=channel, msg=msg)
 
