@@ -263,21 +263,20 @@ class Pinolo(irc.IRCClient):
         # Per SQL LIKE = '%pattern%'
         arg = '%' + arg + '%'
 
-        t, q = self.factory.dbh.search_quote(arg)
-        if t == 0:
+        tot, query = self.factory.dbh.search_quote(arg)
+        if tot == 0:
             self.reply_to(user, channel,
                           "Non abbiamo trovato un cazzo! (cit.)")
             return
 
-        len_q = len(q)
-        if len_q > 5:
+        if tot > 5:
             self.reply_to(user, channel,
-                          "Search found %i results (%i displayed):" % (t, len_q))
+                          "Search found %i results (5 displayed):" % tot)
         else:
             self.reply_to(user, channel,
-                          "Search found %i results:" % t)
+                          "Search found %i results:" % tot)
 
-        for ss in q:
+        for ss in query:
             self.reply_to(user, channel,
                           "%i - %s" % (ss.id, ss.quote))
 
