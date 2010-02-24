@@ -38,8 +38,6 @@ class Prcd():
     def categorie(self):
         return self.prcd.keys()
 
-prcd = Prcd()
-
 if __name__ == '__main__':
     p = Prcd()
 
