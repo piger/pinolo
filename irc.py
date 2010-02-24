@@ -10,6 +10,7 @@ import utils
 #import mh_python
 from time import sleep
 import string
+import os
 
 from pprint import pprint
 from prcd import prcd
@@ -303,6 +304,20 @@ class Pinolo(irc.IRCClient):
                     client.clean_quit()
             else:
                 self.clean_quit()
+
+    def do_PRCD(self, user, channel, arg):
+        if arg is not None:
+            if arg not in prcd.categorie():
+                self.reply_to(user, channel,
+                              "categoria non trovata, PER GIOVE!")
+                return
+
+        cat, moccolo = prcd.a_caso(arg)
+        fd = os.popen("/usr/games/cowsay -f sodomized '%s'" % moccolo)
+        goo = fd.read()
+        fd.close()
+        for line in goo.split("\n"):
+            self.reply_to(user, channel, line)
 
     # XXX TEST!
     def id_conn(self):
