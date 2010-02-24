@@ -137,6 +137,7 @@ class Pinolo(irc.IRCClient):
     def privmsg(self, user, channel, msg):
         user = user.split('!', 1)[0]
 
+        log.msg(type(msg))
         # qui potrei "impacchettare":
         request = dict(user=user, channel=channel, msg=msg)
 
@@ -263,7 +264,8 @@ class Pinolo(irc.IRCClient):
             return
 
         # Per SQL LIKE = '%pattern%'
-        arg = u'%' + arg.encode('utf-8') + u'%'
+        arg = '%' + arg + '%'
+        arg = unicode(arg, 'utf-8')
 
         tot, query = self.factory.dbh.search_quote(arg)
         if tot == 0:
