@@ -248,8 +248,8 @@ class Pinolo(irc.IRCClient):
             self.reply_to(user, channel,
                           "ao' ma de che?")
 
-        elif self._get_config()['name'] != 'azzurra':
-            self.reply_to(user, channel, "qui non posso :|")
+        #elif self._get_config()['name'] != 'azzurra':
+        #    self.reply_to(user, channel, "qui non posso :|")
 
         else:
             q_id = self.factory.dbh.add_quote(user, arg)
