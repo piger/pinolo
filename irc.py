@@ -96,7 +96,8 @@ class Pinolo(irc.IRCClient):
         self.quit(reason)
         #self.transport.loseConnection()
 
-    def signedOn(self):
+    def receivedMOTD(self, motd):
+        #def signedOn(self):
         # IL MALEDETTO NICKSERV
         ns_pass = self._get_config()['password']
         if ns_pass is not None:
