@@ -29,7 +29,7 @@ class Searcher(object):
         self.stemmer = xapian.Stem('italian')
         self.indexer.set_stemmer(self.stemmer)
 
-        self.enquire = xapian.Enquire(database)
+        self.enquire = xapian.Enquire(self.database)
 
         self.qp = xapian.QueryParser()
         self.qp.set_stemmer(self.stemmer)
@@ -42,22 +42,22 @@ class Searcher(object):
         self.enquire.set_query(query)
         matches = self.enquire.get_mset(start, stop)
 
-        print "%i results found." % matches.get_matches_estimated()
-        print "Results 1-%i:" % matches.size()
+        #print "%i results found." % matches.get_matches_estimated()
+        #print "Results 1-%i:" % matches.size()
 
-        for m in matches:
-            quote_text = m.document.get_data()
-            quote_author = m.document.get_value(xapian_author)
-            quote_creation_date = m.document.get_value(xapian_date)
-            quote_creation_date = datetime.strptime(quote_creation_date, '%Y%m%d%H%M%S')
-            quote_date = quote_creation_date.strftime('%A, %B %d, %Y %I:%M%p')
+        #for m in matches:
+        #    quote_text = m.document.get_data()
+        #    quote_author = m.document.get_value(xapian_author)
+        #    quote_creation_date = m.document.get_value(xapian_date)
+        #    quote_creation_date = datetime.strptime(quote_creation_date, '%Y%m%d%H%M%S')
+        #    quote_date = quote_creation_date.strftime('%A, %B %d, %Y %I:%M%p')
 
-            print "%i: %i%% docid=%i [author: %s (%s) - %s" % (m.rank +1,
-                                                               m.percent,
-                                                               m.docid,
-                                                               quote_author,
-                                                               quote_date,
-                                                               quote_text)
+        #    print "%i: %i%% docid=%i [author: %s (%s) - %s" % (m.rank +1,
+        #                                                       m.percent,
+        #                                                       m.docid,
+        #                                                       quote_author,
+        #                                                       quote_date,
+        #                                                       quote_text)
 
         return matches
 
