@@ -1,7 +1,6 @@
 *.pyc
 scripts/fortune/fortune.*
 pinolo.cfg
-quotes.db
 megahal.brn
 megahal.dic
 megahal.log

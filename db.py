@@ -27,56 +27,70 @@ import time
 import utils
 
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, \
-DateTime, Binary, Text
+        DateTime, Binary, Text, Unicode
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, relation, backref, mapper
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import func
+from pprint import pprint
+import datetime
 
 Base = declarative_base()
+metadata = Base.metadata
 
 
 class Quote(Base):
+
     __tablename__ = 'quotes'
 
     id = Column(Integer, primary_key=True)
-    quote = Column(String)
-    author = Column(String)
-    data = Column(String)
+    quote = Column(Unicode(10000))
+    author = Column(Unicode(1000))
+    creation_date = Column(DateTime)
+    karma = Column(Integer)
 
-    def __init__(self, quote, author, data=None):
+    def __init__(self, quote, author, creation_date=None, karma=0):
         self.quote = quote
         self.author = author
-        if data is None:
-            data = time.strftime("%Y-%m-%d")
-        self.data = data
+        if creation_date is None:
+            self.creation_date = datetime.datetime.now()
+        else:
+            self.creation_date = creation_date
+        self.karma = karma
 
     def __repr__(self):
-        return "<Quote('%s', '%s', '%s')>" % (self.quote,
-                                              self.author,
-                                              self.data)
-
-
+        return u"<NewQuote('%s', '%s', '%s', '%i')>" % (self.author,
+                                                        self.quote,
+                                                        self.creation_date,
+                                                        self.karma)
 class SqlFairy():
-    def __init__(self, filename=None):
-        if filename is None:
-            filename = 'quotes.db'
-        db_url = 'sqlite:///' + filename
+    """La classe che gestisce l'interazione con il database."""
+
+    def __init__(self, filename='./quotes.db'):
+        sqlite_prefix = 'sqlite:///'
+        db_url = sqlite_prefix + filename
+
         self.engine = create_engine(db_url, echo=False)
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
 
-    def add_quote(self, author, txt):
-        # NO!
-        # txt = utils.unicodize(txt)
-        txt = txt.encode('utf-8')
+    def add_quote(self, author, text):
+        """Aggiunge una quote al database.
+
+        `txt` deve essere Unicode!
+        """
+
+        assert type(author) == unicode, "author must be unicode!"
+        assert type(text) == unicode, "text must be unicode!"
+
         try:
-            q = Quote(txt, author)
-            self.session.add(q)
+            new_quote = Quote(quote=text, author=author)
+            self.session.add(new_quote)
             self.session.commit()
-            return q.id
-        except:
+            return new_quote.id
+        except Exception, e:
             self.session.rollback()
+            print "ERROR: add_quote:", str(e)
             return None
 
     def random_quote(self):
@@ -104,54 +118,46 @@ class SqlFairy():
         return result_found, q[:limit]
 
 
-# La versione "vecchia", con pysqlite3
-class DbHelper:
-    """DbHelper
-    Questa classe contiene le funzioni per manipolare il DB di quotes.
-    """
-    def __init__(self, quotes_db='quotes.db', markov_db='brain_new.db'):
-        self.quotes_db = quotes_db
-        self.markov_db = markov_db
-        self.cursors = {}
 
-        self.q_dbconn = sqlite.connect(self.quotes_db)
-        self.m_dbconn = sqlite.connect(self.markov_db)
-        self.q_dbconn.text_factory = str
-        self.m_dbconn.text_factory = str
+if __name__ == "__main__":
+    s = SqlFairy("/Users/sand/quotes.db")
+    import sys
+    quote = s.get_quote(sys.argv[1])
+    print quote.quote.encode('utf-8')
+    #metadata.create_all(s.engine)
 
-        self.cursors['quotes'] = self.q_dbconn.cursor()
-        self.cursors['markov'] = self.m_dbconn.cursor()
+    #quotes = s.session.query(NewQuote).order_by(NewQuote.id).all()
+    #for quote in quotes:
+    #    new_quote = Quote(quote=quote.quote,
+    #                      author=quote.author,
+    #                      creation_date=quote.creation_date,
+    #                      karma=quote.karma)
+    #    s.session.add(new_quote)
+    #s.session.commit()
+    ##quotes = s.session.query(Quote).order_by(Quote.id).limit(10)
+    #for quote in quotes:
+    #    author = quote.author
+    #    text = quote.quote
 
-    def get_quote(self, id=None):
-        """Ritorna una quote casuale o una specifica se gli passi l'ID."""
-        try:
-            if id:
-                self.cursors['quotes'].execute("SELECT quoteid,quote FROM quotes WHERE quoteid = ?", (id,))
-            else:
-                self.cursors['quotes'].execute("SELECT quoteid,quote FROM quotes ORDER BY RANDOM() LIMIT 1")
+    #    try:
+    #        data = datetime.datetime.strptime(quote.data, "%H:%M:%S %d/%m/%Y")
+    #    except ValueError:
+    #        try:
+    #            data = datetime.datetime.strptime(quote.data, "%d/%m/%Y %H:%M")
+    #        except ValueError:
+    #            data = datetime.datetime.strptime(quote.data, "%Y-%m-%d")
 
-        except OverflowError:
-            log.msg("get_quote() con parametro non numerico")
-            return (0, "ma che davero davero?")
+    #    #print text.encode('utf-8'), data.hour
 
-        return self.cursors['quotes'].fetchone()
+    #    new_quote = NewQuote(quote=text, author=author, creation_date=data)
+    #    s.session.add(new_quote)
 
-    def add_quote(self, author, quote):
-        """Inserisce una quote nel DB.
-        ritorna un intero che rappresenta l'ID (SQL) della quote.
-        """
-        now = time.strftime("%Y-%m-%d")
-        quote = utils.unicodize(quote)
-        self.cursors['quotes'].execute("INSERT INTO quotes(quote, author, data) VALUES (?, ?, ?)", (quote, author, now))
-        self.q_dbconn.commit()
-        return self.cursors['quotes'].lastrowid
+    #s.session.commit()
 
-    def search_quote(self, pattern):
-        pattern = utils.unicodize(pattern)
-        pattern = '%' + pattern.strip() + '%'
-        t = (pattern,)
-        self.cursors['quotes'].execute("SELECT quoteid,quote FROM quotes WHERE quote LIKE ? ORDER BY RANDOM()", t)
-        return self.cursors['quotes'].fetchall()
+    # DATE FIXER
 
-    def shutdown(self):
-        self.q_dbconn.close()
+    #quotes = s.session.query(NewQuote).order_by(NewQuote.creation_date).all()
+    #wrong_date = datetime.datetime.strptime("1970-01-01 01:00:00", "%Y-%m-%d %H:%M:%S")
+    #for quote in quotes:
+    #    if quote.creation_date != wrong_date:
+    #        print quote.creation_date

@@ -272,6 +272,13 @@ class Pinolo(irc.IRCClient):
             self.reply_to(user, channel,
                           "ao' ma de che?")
 
+        if type(user) is str:
+            print "converto user"
+            user = unicode(user, 'utf-8')
+        if type(arg) is str:
+            print "converto arg"
+            arg = unicode(arg, 'utf-8')
+
         #elif self._get_config()['name'] != 'azzurra':
         #    self.reply_to(user, channel, "qui non posso :|")
 
