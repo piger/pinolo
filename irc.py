@@ -39,6 +39,8 @@ import os
 from pprint import pprint
 from prcd import Prcd
 
+from search import Searcher
+
 VALID_CMD_CHARS = string.ascii_letters + string.digits + '_'
 
 
@@ -227,6 +229,7 @@ class Pinolo(irc.IRCClient):
         fn_map = {
             'q': 'quote',
             's': 'search',
+            'x': 'new_search',
         }
 
         # empty line
@@ -317,6 +320,34 @@ class Pinolo(irc.IRCClient):
             self.reply_to(user, channel,
                           u"%i - %s" % (ss.id, ss.quote))
 
+    def do_new_search(self, user, channel, arg):
+        if arg is None or arg == "":
+            self.reply_to(user, channel,
+                          "Cosa vorresti cercare OGGI? (TM)")
+            return
+
+        matches = self.factory.searcher.search(arg)
+        num_results = matches.get_matches_estimated()
+
+        if num_results == 0:
+            self.reply_to(user, channel,
+                          "Non abbiamo trovato un cazzo! (cit.)")
+            return
+
+        self.reply_to(user, channel, "%i results found." % matches.get_matches_estimated())
+
+        for m in matches:
+            quote_text = unicode(m.document.get_data(), 'utf-8')
+            #quote_author = unicode(m.document.get_value(xapian_author), 'utf-8')
+            #quote_creation_date = m.document.get_value(xapian_date)
+            #quote_creation_date = datetime.strptime(quote_creation_date, '%Y%m%d%H%M%S')
+            #quote_date = quote_creation_date.strftime('%A, %B %d, %Y %I:%M%p')
+
+            self.reply_to(user, channel,
+                          "%i: %i%% - %s" % (m.rank +1,
+                                             m.percent,
+                                             quote_text)
+
     def do_prcd(self, user, channel, arg):
         if arg is not None:
             if arg not in self.factory.prcd.categorie():
@@ -395,6 +426,7 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
         #self.dbh = db.DbHelper("quotes.db")
         self.dbh = db.SqlFairy('quotes.db')
         self.prcd = Prcd()
+        self.searcher = Searcher()
 
     def config_from_name(self, name):
         for a, p in self.config.keys():

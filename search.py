@@ -19,6 +19,49 @@ DATABASE = os.path.join(ROOTDIR, 'xapiandb')
 xapian_author = 0
 xapian_date = 1
 
+class Searcher(object):
+    def __init__(self, databasedir=DATABASE):
+        self.databasedir = databasedir
+
+        self.database = xapian.WritableDatabase(self.databasedir,
+                                                xapian.DB_CREATE_OR_OPEN)
+        self.indexer = xapian.TermGenerator()
+        self.stemmer = xapian.Stem('italian')
+        self.indexer.set_stemmer(stemmer)
+
+        self.enquire = xapian.Enquire(database)
+
+        self.qp = xapian.QueryParser()
+        self.qp.set_stemmer(self.stemmer)
+        self.qp.set_database(self.database)
+        self.qp.set_stemming_strategy(xapian.QueryParser.STEM_SOME)
+
+    def search(self, query_string, start=0, stop=5):
+
+        query = self.qp.parse_query(query_string)
+        self.enquire.set_query(query)
+        matches = self.enquire.get_mset(start, stop)
+
+        print "%i results found." % matches.get_matches_estimated()
+        print "Results 1-%i:" % matches.size()
+
+        for m in matches:
+            quote_text = m.document.get_data()
+            quote_author = m.document.get_value(xapian_author)
+            quote_creation_date = m.document.get_value(xapian_date)
+            quote_creation_date = datetime.strptime(quote_creation_date, '%Y%m%d%H%M%S')
+            quote_date = quote_creation_date.strftime('%A, %B %d, %Y %I:%M%p')
+
+            print "%i: %i%% docid=%i [author: %s (%s) - %s" % (m.rank +1,
+                                                               m.percent,
+                                                               m.docid,
+                                                               quote_author,
+                                                               quote_date,
+                                                               quote_text)
+
+        return matches
+
+
 def main(create=False):
     s = SqlFairy("/Users/sand/quotes.db")
     database = xapian.WritableDatabase(DATABASE, xapian.DB_CREATE_OR_OPEN)
@@ -77,13 +120,6 @@ def main(create=False):
                                                            quote_date,
                                                            quote_text)
 
-    database.close()
-    for dirpath, dirnames, filenames in os.walk(DATABASE):
-        for filename in filenames:
-            tmpfile = os.path.join(dirpath, filename)
-            #print "removing temp file", tmpfile
-            os.unlink(tmpfile)
-    os.rmdir(DATABASE)
 
 
 if __name__ == '__main__':
