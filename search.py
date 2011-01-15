@@ -27,7 +27,7 @@ class Searcher(object):
                                                 xapian.DB_CREATE_OR_OPEN)
         self.indexer = xapian.TermGenerator()
         self.stemmer = xapian.Stem('italian')
-        self.indexer.set_stemmer(stemmer)
+        self.indexer.set_stemmer(self.stemmer)
 
         self.enquire = xapian.Enquire(database)
 
