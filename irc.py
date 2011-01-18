@@ -274,6 +274,7 @@ class Pinolo(irc.IRCClient):
         if arg is None:
             self.reply_to(user, channel,
                           "ao' ma de che?")
+            return
 
         if type(user) is str:
             print "converto user"
@@ -285,10 +286,9 @@ class Pinolo(irc.IRCClient):
         #elif self._get_config()['name'] != 'azzurra':
         #    self.reply_to(user, channel, "qui non posso :|")
 
-        else:
-            q_id = self.factory.dbh.add_quote(user, arg)
-            self.reply_to(user, channel,
-                          "aggiunto il quote %i!" % q_id)
+        q_id = self.factory.dbh.add_quote(user, arg)
+        self.reply_to(user, channel,
+                      "aggiunto il quote %i!" % q_id)
 
     def do_search(self, user, channel, arg):
         if arg is None or arg == '':
