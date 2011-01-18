@@ -277,16 +277,11 @@ class Pinolo(irc.IRCClient):
             return
 
         if type(user) is str:
-            print "converto user"
-            user = unicode(user, 'utf-8')
+            u_user = unicode(user, 'utf-8')
         if type(arg) is str:
-            print "converto arg"
-            arg = unicode(arg, 'utf-8')
+            u_arg = unicode(arg, 'utf-8')
 
-        #elif self._get_config()['name'] != 'azzurra':
-        #    self.reply_to(user, channel, "qui non posso :|")
-
-        q_id = self.factory.dbh.add_quote(user, arg)
+        q_id = self.factory.dbh.add_quote(u_user, u_arg)
         self.reply_to(user, channel,
                       "aggiunto il quote %i!" % q_id)
 
