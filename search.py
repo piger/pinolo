@@ -18,6 +18,7 @@ DATABASE = os.path.join(ROOTDIR, 'xapiandb')
 
 xapian_author = 0
 xapian_date = 1
+xapian_quote_id = 2
 
 class Searcher(object):
     def __init__(self, databasedir=DATABASE):
@@ -83,6 +84,7 @@ def main(create=False):
             doc.set_data(q_text)
             doc.add_value(xapian_author, q_author)
             doc.add_value(xapian_date, quote.creation_date.strftime('%Y%m%d%H%M%S'))
+            doc.add_value(xapian_quote_id, quote.id)
 
             indexer.set_document(doc)
             indexer.index_text(q_text)
