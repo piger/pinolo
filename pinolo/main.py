@@ -11,7 +11,7 @@ from pprint import pprint
 from ConfigParser import SafeConfigParser, NoOptionError
 
 from twisted.python import log
-from twisted.internet import ssl
+from twisted.internet import reactor, ssl
 
 from pinolo.irc import PinoloFactory
 
@@ -37,6 +37,7 @@ def run_foreground(servers):
         moo.name = servers[(address, port)]['name']
 
     reactor.run()
+
 
 def parse_config_file(filename):
     """Parse a configuration file, exit on errors."""
