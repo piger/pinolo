@@ -14,6 +14,7 @@ import sys
 import re
 import socket
 from pprint import pprint
+from optparse import OptionParser
 
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, ssl
@@ -21,6 +22,8 @@ from twisted.python import log
 
 STATUS_ALIVE = 1
 STATUS_QUIT = 2
+
+JOIN_RETRY = 10
 
 class IRCServer(object):
     """
@@ -64,6 +67,7 @@ class IRCServer(object):
             self.channels = []
         self.connector = None
         self.status = STATUS_ALIVE
+        self.current_nickname = nickname
 
 
 class Pinolo(irc.IRCClient):
@@ -80,12 +84,19 @@ class Pinolo(irc.IRCClient):
     def _get_nickname(self):
         return self.config.nickname
     nickname = property(_get_nickname)
+
     def _get_realname(self):
         return self.config.realname
     realname = property(_get_realname)
+
     def _get_username(self):
         return self.config.ident
     username = property(_get_username)
+
+    def _get_current_nickname(self):
+        return self.config.current_nickname
+    currnickname = property(_get_current_nickname)
+
 
     def signedOn(self):
         # il server
@@ -96,14 +107,51 @@ class Pinolo(irc.IRCClient):
         info = "%s:%i <--> %s:%i" % (host.host, int(host.port),
                                      peer.host, int(peer.port))
         log.msg("Connection info: " + info)
-        self.join('#mortodentro')
 
-    def joined(self, channel):
-        print "joined", channel
-        self.quit("me ne vado")
+        self.join_channels()
+
+
+    #def joined(self, channel):
+    #    print "joined", channel
+    #    self.quit("me ne vado")
+
+    def join_channels(self):
+        for channel in self.config.channels:
+            self.join(channel)
+
+        #reactor.callLater(JOIN_RETRY, self.join_channels)
+
+    def parse_userhost(self, userhost):
+        m = re.match(r'(?P<nickname>[^!]+)!(?P<ident>[^@]+)@(?P<hostname>.*)',
+                     userhost)
+
+        if m is None:
+            log.msg("Invalid userhost: '%s'" % userhost)
+            raise RuntimeError("Invalid userhost string: %s" % userhost)
+
+        return m.groupdict()
+
 
     def privmsg(self, user, channel, msg):
-        print msg
+        # user=sand!~sand@practivate.adobe.com channel=#prova msg='ciao'
+        log.msg("Message from: user=%s channel=%s msg='%s'" % (user, channel, msg))
+        info = self.parse_userhost(user)
+
+        if channel == self.nickname:
+            reply_to = info['nickname']
+        else:
+            reply_to = channel
+
+        if msg.startswith('!'):
+            self.handle_command(info, channel, reply_to, msg[1:])
+
+    def handle_command(self, info, channel, reply_to, msg):
+        self.reply(reply_to, 'stocazzo!')
+
+
+    def reply(self, destination, message):
+        self.msg(destination, message.encode('utf-8', 'ignore'))
+
 
     def quit(self, message):
         log.msg("Quitting from %s" % self.config.name)
@@ -193,8 +241,9 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
             self.connector = connector
             self.stopTrying()
         else:
-            super(PinoloFactory, self).clientConnectionLost(connector, reason)
-            #protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+            # XXX non si puo' usare 'super' con questo tipo di classi.
+            #super(PinoloFactory, self).clientConnectionLost(connector, reason)
+            protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
 
     def clientConnectionFailed(self, connector, reason):
@@ -213,8 +262,8 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
             self.connector = connector
             self.stopTrying()
         else:
-            super(PinoloFactory, self).clientConnectionFailed(connector, reason)
-            #protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
+            #super(PinoloFactory, self).clientConnectionFailed(connector, reason)
+            protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
 
 
     def canIDIEPLZKTHXBYE(self):
