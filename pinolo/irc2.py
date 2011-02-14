@@ -15,19 +15,19 @@ import re
 import socket
 from collections import namedtuple
 # from pprint import pprint
-# from optparse import OptionParser
+from optparse import OptionParser
 
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
 from twisted.python import log
+
+from pinolo import IRCUser, Request
 
 STATUS_ALIVE = 1
 STATUS_QUIT = 2
 
 JOIN_RETRY = 10
 
-
-IRCUser = namedtuple('IRCUser', 'nickname ident hostname')
 
 class IRCServer(object):
     """
@@ -73,17 +73,6 @@ class IRCServer(object):
         self.status = STATUS_ALIVE
         self.current_nickname = nickname
 
-class Command(object):
-    def __init__(self, client, author, channel, reply_to, command, arguments):
-        self.client = client
-        self.author = author
-        self.channel = channel
-        self.reply_to = reply_to
-        self.command = command
-        self.arguments = arguments
-
-    def reply(self, message):
-        self.client.reply(self.reply_to, message)
 
 class Pinolo(irc.IRCClient):
     """
@@ -165,19 +154,17 @@ class Pinolo(irc.IRCClient):
             self.handle_command(irc_user, channel, reply_to, msg[1:])
 
     def handle_command(self, irc_user, channel, reply_to, msg):
-        try:
-            command, arguments = msg.split(' ', 1)
-        except ValueError:
-            command = msg
-            arguments = None
+        arguments = re.split(r'\s+', msg)
+        command = arguments.pop(0)
+        req = Request(self, irc_user, channel, reply_to, command, arguments)
 
         pm = self.factory.plugin_manager
-
         for plugin in [pm.getPluginByName(p.name, 'Commands') for p in
                        pm.getPluginsOfCategory('Commands')]:
 
             if plugin.is_activated:
-                plugin.plugin_object.handle(self, command, arguments, irc_user, channel, reply_to)
+                # plugin.plugin_object.handle(self, command, arguments, irc_user, channel, reply_to)
+                plugin.plugin_object.handle(req)
 
 
     def reply(self, destination, message):

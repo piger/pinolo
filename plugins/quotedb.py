@@ -11,9 +11,10 @@ This requires SQLAlchemy.
 """
 
 import os
+import re
 from datetime import datetime
 from pprint import pprint
-from optparse import OptionParser
+# from optparse import OptionParser
 
 from twisted.python import log
 
@@ -26,6 +27,7 @@ from sqlalchemy import func
 from pubsub import Publisher as pubsub
 
 from pinolo.main import CommandPlugin, PluginActivationError
+from pinolo import MyOptionParser, OptionParserError
 
 DATABASE = os.path.abspath('./quotes.db')
 
@@ -64,7 +66,7 @@ class Quote(Base):
 class Prova(CommandPlugin):
     """This is a test plugin implementing Quotes"""
 
-    quote_opt = OptionParser()
+    quote_opt = MyOptionParser(usage="!quote - !q : [options] [id]")
 
     def __init__(self):
         super(Prova, self).__init__()
@@ -81,14 +83,50 @@ class Prova(CommandPlugin):
         except Exception, e:
             raise PluginActivationError(e)
 
-    def handle(self, client, command, arguments, irc_user, channel, reply_to):
+
+    def handle(self, request):
+        # def handle(self, client, command, arguments, irc_user, channel, reply_to):
         """Generic IRC command handler"""
 
-        if command in [ 'q', 'quote' ]:
-            quote = self.get_quote()
-            client.reply(reply_to, quote.quote)
+        if request.command in [ 'q', 'quote' ]:
+            try:
+                (options, args) = self.quote_opt.parse_args(request.arguments)
+            except OptionParserError, e:
+                request.reply(str(e))
+            else:
+                self.get_quote(request, options, args)
 
-    def get_quote(self, id=None):
+        elif request.command in [ 'addq', 'addquote', 'add' ]:
+            request.reply("Non ce l'ho, me deve arriva'")
+
+    def get_quote(self, request, options, arguments):
+        query = self.session.query(Quote)
+
+        if arguments:
+            id = arguments.pop(0)
+
+            if re.match(r'\d+$', id):
+                query = query.filter_by(id=id)
+            else:
+                request.reply("Invalid ID")
+                return
+
+        else:
+            query = query.order_by(func.random())
+
+        if options.contains:
+            # SA vuole parametri 'unicode' per colonne 'unicode' ;)
+            filter_str = unicode(options.contains, 'utf-8', 'replace')
+            query = query.filter(Quote.quote.contains(filter_str))
+
+        result = query.first()
+        if result is None:
+            request.reply("Not found")
+        else:
+            request.reply(result.quote)
+
+
+    def OLD_get_quote(self, id=None):
         """Get a quote from database, either random or specific with ``id``.
 
         Returns:

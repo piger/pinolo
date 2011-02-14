@@ -56,7 +56,7 @@ class ZabbixSearch(CommandPlugin):
 
         self.database.add_document(doc)
 
-    def handle(self, client, command, arguments, info, channel, reply_to):
+    def handle(self, request):
         pass
 
     def activate(self):
