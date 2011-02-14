@@ -122,6 +122,8 @@ class Pinolo(irc.IRCClient):
         #reactor.callLater(JOIN_RETRY, self.join_channels)
 
     def parse_userhost(self, userhost):
+        """Parse a userhost mask (user!ident@hostname) and returns a dict"""
+
         m = re.match(r'(?P<nickname>[^!]+)!(?P<ident>[^@]+)@(?P<hostname>.*)',
                      userhost)
 
@@ -133,20 +135,30 @@ class Pinolo(irc.IRCClient):
 
 
     def privmsg(self, user, channel, msg):
-        # user=sand!~sand@practivate.adobe.com channel=#prova msg='ciao'
+        """Handle public and private privmsg's"""
+
         log.msg("Message from: user=%s channel=%s msg='%s'" % (user, channel, msg))
         info = self.parse_userhost(user)
 
-        if channel == self.nickname:
-            reply_to = info['nickname']
-        else:
-            reply_to = channel
+        reply_to = info['nickname'] if channel == self.nickname else channel
 
         if msg.startswith('!'):
             self.handle_command(info, channel, reply_to, msg[1:])
 
     def handle_command(self, info, channel, reply_to, msg):
-        self.reply(reply_to, 'stocazzo!')
+        try:
+            command, arguments = msg.split(' ', 1)
+        except ValueError:
+            command = msg
+            arguments = None
+
+        pm = self.factory.plugin_manager
+
+        for plugin in [pm.getPluginByName(p.name, 'Commands') for p in
+                       pm.getPluginsOfCategory('Commands')]:
+
+            if plugin.is_activated:
+                plugin.plugin_object.handle(self, command, arguments, info, channel, reply_to)
 
 
     def reply(self, destination, message):
@@ -174,7 +186,8 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
 
     protocol = Pinolo
 
-    def __init__(self, *servers):
+    def __init__(self, plugin_manager, *servers):
+        self.plugin_manager = plugin_manager
         self.servers = servers[:]
         self.clients = []
 

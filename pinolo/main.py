@@ -13,7 +13,15 @@ from ConfigParser import SafeConfigParser, NoOptionError
 from twisted.python import log
 from twisted.internet import reactor, ssl
 
+from yapsy.PluginManager import PluginManager
+from yapsy.IPlugin import IPlugin
+
 from irc2 import IRCServer, PinoloFactory
+
+
+class BasePlugin(IPlugin): pass
+class CommandPlugin(IPlugin): pass
+class PluginActivationError(Exception): pass
 
 
 def run_foreground(servers):
@@ -21,8 +29,9 @@ def run_foreground(servers):
     """
 
     log.startLogging(sys.stdout)
+    pm = init_plugins()
 
-    f = PinoloFactory(*servers)
+    f = PinoloFactory(pm, *servers)
 
     for server in f.servers:
         if server.ssl:
@@ -37,6 +46,22 @@ def run_foreground(servers):
 
     reactor.run()
 
+def init_plugins(plugin_dir='plugins'):
+    pm = PluginManager(categories_filter={"Default": BasePlugin,
+                                          "Commands": CommandPlugin,
+                                         })
+    pm.setPluginPlaces([plugin_dir])
+    pm.collectPlugins()
+
+    for category in pm.getCategories():
+        for plugin in pm.getPluginsOfCategory(category):
+            try:
+                pm.activatePluginByName(plugin.name, category)
+            except PluginActivationError, e:
+                log.msg("Deactivating faulty plugin: %s (%r)" % (plugin.name, e))
+                pm.deactivatePluginByName(plugin.name, category)
+
+    return pm
 
 def parse_config_file(filename):
     """Parse a configuration file, exit on errors."""
