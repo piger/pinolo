@@ -13,6 +13,7 @@ tiene traccia delle configurazioni e dei client (connessioni).
 # import sys
 import re
 import socket
+from collections import namedtuple
 # from pprint import pprint
 # from optparse import OptionParser
 
@@ -24,6 +25,9 @@ STATUS_ALIVE = 1
 STATUS_QUIT = 2
 
 JOIN_RETRY = 10
+
+
+IRCUser = namedtuple('IRCUser', 'nickname ident hostname')
 
 class IRCServer(object):
     """
@@ -69,6 +73,17 @@ class IRCServer(object):
         self.status = STATUS_ALIVE
         self.current_nickname = nickname
 
+class Command(object):
+    def __init__(self, client, author, channel, reply_to, command, arguments):
+        self.client = client
+        self.author = author
+        self.channel = channel
+        self.reply_to = reply_to
+        self.command = command
+        self.arguments = arguments
+
+    def reply(self, message):
+        self.client.reply(self.reply_to, message)
 
 class Pinolo(irc.IRCClient):
     """
@@ -121,6 +136,7 @@ class Pinolo(irc.IRCClient):
 
         #reactor.callLater(JOIN_RETRY, self.join_channels)
 
+
     def parse_userhost(self, userhost):
         """Parse a userhost mask (user!ident@hostname) and returns a dict"""
 
@@ -131,21 +147,24 @@ class Pinolo(irc.IRCClient):
             log.msg("Invalid userhost: '%s'" % userhost)
             raise RuntimeError("Invalid userhost string: %s" % userhost)
 
-        return m.groupdict()
+        info = m.groupdict()
+        user = IRCUser(info['nickname'], info['ident'], info['hostname'])
+
+        return user
 
 
     def privmsg(self, user, channel, msg):
         """Handle public and private privmsg's"""
 
         log.msg("Message from: user=%s channel=%s msg='%s'" % (user, channel, msg))
-        info = self.parse_userhost(user)
+        irc_user = self.parse_userhost(user)
 
-        reply_to = info['nickname'] if channel == self.nickname else channel
+        reply_to = irc_user.nickname if channel == self.nickname else channel
 
         if msg.startswith('!'):
-            self.handle_command(info, channel, reply_to, msg[1:])
+            self.handle_command(irc_user, channel, reply_to, msg[1:])
 
-    def handle_command(self, info, channel, reply_to, msg):
+    def handle_command(self, irc_user, channel, reply_to, msg):
         try:
             command, arguments = msg.split(' ', 1)
         except ValueError:
@@ -158,7 +177,7 @@ class Pinolo(irc.IRCClient):
                        pm.getPluginsOfCategory('Commands')]:
 
             if plugin.is_activated:
-                plugin.plugin_object.handle(self, command, arguments, info, channel, reply_to)
+                plugin.plugin_object.handle(self, command, arguments, irc_user, channel, reply_to)
 
 
     def reply(self, destination, message):

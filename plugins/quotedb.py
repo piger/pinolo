@@ -13,6 +13,7 @@ This requires SQLAlchemy.
 import os
 from datetime import datetime
 from pprint import pprint
+from optparse import OptionParser
 
 from twisted.python import log
 
@@ -63,6 +64,8 @@ class Quote(Base):
 class Prova(CommandPlugin):
     """This is a test plugin implementing Quotes"""
 
+    quote_opt = OptionParser()
+
     def __init__(self):
         super(Prova, self).__init__()
         self.db_file = 'sqlite:///' + DATABASE
@@ -78,7 +81,7 @@ class Prova(CommandPlugin):
         except Exception, e:
             raise PluginActivationError(e)
 
-    def handle(self, client, command, arguments, info, channel, reply_to):
+    def handle(self, client, command, arguments, irc_user, channel, reply_to):
         """Generic IRC command handler"""
 
         if command in [ 'q', 'quote' ]:
@@ -104,3 +107,7 @@ class Prova(CommandPlugin):
         pubsub.sendMessage('get_quote', data=q)
 
         return q
+
+Prova.quote_opt.add_option("-c", "--contains", dest="contains",
+                           help="Prende un Quote che contiene TESTO",
+                           metavar="TESTO")
