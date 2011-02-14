@@ -123,7 +123,7 @@ class Prova(CommandPlugin):
         if result is None:
             request.reply("Not found")
         else:
-            request.reply(result.quote)
+            request.reply("%i, %s" % (result.id, result.quote))
 
 
     def OLD_get_quote(self, id=None):

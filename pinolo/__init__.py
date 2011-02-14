@@ -36,4 +36,8 @@ class Request(object):
         self.arguments = arguments
 
     def reply(self, message):
-        self.client.reply(self.reply_to, message)
+        if self.reply_to.startswith('#'):
+            self.client.reply(self.reply_to, "%s: %s" % (self.author.nickname,
+                                                         message))
+        else:
+            self.client.reply(self.reply_to, message)

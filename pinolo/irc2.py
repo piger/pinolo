@@ -9,13 +9,16 @@ La classe PinoloFactory invece gestisce la parte di network del protocollo IRC e
 tiene traccia delle configurazioni e dei client (connessioni).
 """
 
-# import os
+import os
 # import sys
 import re
 import socket
 from collections import namedtuple
+import random
 # from pprint import pprint
 from optparse import OptionParser
+
+from pkg_resources import resource_string
 
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
@@ -28,6 +31,7 @@ STATUS_QUIT = 2
 
 JOIN_RETRY = 10
 
+QUIT_MSGS = resource_string(__name__, os.path.join('data', 'quit.txt')).split('\n')
 
 class IRCServer(object):
     """
@@ -165,6 +169,14 @@ class Pinolo(irc.IRCClient):
             if plugin.is_activated:
                 # plugin.plugin_object.handle(self, command, arguments, irc_user, channel, reply_to)
                 plugin.plugin_object.handle(req)
+
+
+        # STANDARD COMMANDS
+
+        # quit - with s3cur1ty thr0ugh MENESBATTOLEPALLE
+        if (command == 'quit' and
+            irc_user.nickname == 'sand'):
+            self.quit(random.choice(QUIT_MSGS))
 
 
     def reply(self, destination, message):
