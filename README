@@ -1,4 +1,22 @@
-pinolo, the naughty irc bot.
+pinolo, the naughty irc bot
+===========================
 
-SPERO CHE NESSUNO LEGGA O USI QUESTO CODICE, PERCHE' E' MERDA.
--sand
+Requirements
+------------
+See included ``requirements.txt`` file, which can be passed to ``pip`` for an
+easy installation of the required packages.
+
+- python >= 2.5
+- Twisted
+- Yapsy
+- PyPubSub
+- SQLAlchemy (optional)
+- xapian (optional, can only be installed with ``easy_install``?)
+
+Notes
+-----
+The code is messy and ugly.
+
+License
+-------
+BSD, see included *LICENSE* file.
