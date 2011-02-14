@@ -9,15 +9,15 @@ La classe PinoloFactory invece gestisce la parte di network del protocollo IRC e
 tiene traccia delle configurazioni e dei client (connessioni).
 """
 
-import os
-import sys
+# import os
+# import sys
 import re
 import socket
-from pprint import pprint
-from optparse import OptionParser
+# from pprint import pprint
+# from optparse import OptionParser
 
 from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol, ssl
+from twisted.internet import reactor, protocol
 from twisted.python import log
 
 STATUS_ALIVE = 1
@@ -286,35 +286,3 @@ class PinoloFactory(protocol.ReconnectingClientFactory):
             if server.status != STATUS_QUIT:
                 return False
         return True
-
-
-def main():
-    log.startLogging(sys.stdout)
-
-    irc_local = IRCServer('local', 'localhost', 6667, False,
-                          'pinolo', 'pinolo_', channels=['#mortodentro'])
-    irc_azzurra = IRCServer('azzurra', 'irc.azzurra.org', 9999, True,
-                            'pinolo__', 'pyn0l0',
-                            channels=['#mortodentro'])
-
-    #irc_servers = [irc_local, irc_azzurra]
-    irc_servers = [irc_local]
-    f = PinoloFactory(*irc_servers)
-
-    for server in f.servers:
-
-        if server.ssl:
-            conn = reactor.connectSSL(server.address, server.port,
-                                      f, ssl.ClientContextFactory())
-        else:
-            conn = reactor.connectTCP(server.address, server.port, f)
-
-        server.connector = conn
-
-    reactor.run()
-
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(main())
-

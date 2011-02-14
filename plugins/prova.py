@@ -12,6 +12,7 @@ This requires SQLAlchemy.
 
 import os
 from datetime import datetime
+from pprint import pprint
 
 from twisted.python import log
 
@@ -20,7 +21,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import func
-from pprint import pprint
+
+from pubsub import Publisher as pubsub
 
 from pinolo.main import CommandPlugin, PluginActivationError
 
@@ -98,5 +100,7 @@ class Prova(CommandPlugin):
             q = self.session.query(Quote).filter_by(
                 id=id
             ).first()
+
+        pubsub.sendMessage('get_quote', data=q)
 
         return q
