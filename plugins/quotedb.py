@@ -67,6 +67,7 @@ class Prova(CommandPlugin):
     """This is a test plugin implementing Quotes"""
 
     quote_opt = MyOptionParser(usage="!quote - !q : [options] [id]")
+    addq_opt = MyOptionParser(usage="!addquote - !addq : <quote da aggiungere>")
 
     def __init__(self):
         super(Prova, self).__init__()
@@ -97,6 +98,15 @@ class Prova(CommandPlugin):
                 self.get_quote(request, options, args)
 
         elif request.command in [ 'addq', 'addquote', 'add' ]:
+            try:
+                (options, args) = self.addq_opt.parse_args(request.arguments)
+            except OptionParserError, e:
+                # request.reply("Calcola non c'ho capito un cazzo")
+                request.reply(str(e))
+            else:
+                self.add_quote(request, options, args)
+
+        elif request.command in [ 'porcodio' ]:
             request.reply("Non ce l'ho, me deve arriva'")
 
     def get_quote(self, request, options, arguments):
@@ -124,27 +134,26 @@ class Prova(CommandPlugin):
             request.reply("Not found")
         else:
             request.reply("%i, %s" % (result.id, result.quote))
+            pubsub.sendMessage('get_quote', data=result)
 
 
-    def OLD_get_quote(self, id=None):
-        """Get a quote from database, either random or specific with ``id``.
+    def add_quote(self, request, options, arguments):
+        if not arguments:
+            request.reply("Errore, te pare zi'?")
+            return
 
-        Returns:
-        A ``Quote`` object.
-        """
+        author = request.author.nickname
+        author = unicode(author, 'utf-8', 'replace')
 
-        if id is None:
-            q = self.session.query(Quote).order_by(
-                func.random()
-            ).limit(1).first()
-        else:
-            q = self.session.query(Quote).filter_by(
-                id=id
-            ).first()
+        text = ' '.join(arguments)
+        text = unicode(text, 'utf-8', 'replace')
 
-        pubsub.sendMessage('get_quote', data=q)
+        quote = Quote(quote=text, author=author)
+        self.session.add(quote)
+        self.session.commit()
 
-        return q
+        request.reply("Ho stipato la %i!" % quote.id)
+
 
 Prova.quote_opt.add_option("-c", "--contains", dest="contains",
                            help="Prende un Quote che contiene TESTO",

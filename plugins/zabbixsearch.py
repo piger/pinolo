@@ -65,4 +65,4 @@ class ZabbixSearch(CommandPlugin):
         pubsub.subscribe(self.fai, 'get_quote')
 
     def fai(self, event):
-        log.msg("Farei? %r" % event.data)
+        log.msg("Hanno chiesto get_quote di %i" % event.data.id)

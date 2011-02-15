@@ -33,7 +33,7 @@ class Request(object):
         self.channel = channel
         self.reply_to = reply_to
         self.command = command
-        self.arguments = arguments
+        self.arguments = arguments[:]
 
     def reply(self, message):
         if self.reply_to.startswith('#'):

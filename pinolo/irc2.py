@@ -15,7 +15,7 @@ import re
 import socket
 from collections import namedtuple
 import random
-# from pprint import pprint
+from pprint import pprint
 from optparse import OptionParser
 
 from pkg_resources import resource_string
@@ -31,7 +31,8 @@ STATUS_QUIT = 2
 
 JOIN_RETRY = 10
 
-QUIT_MSGS = resource_string(__name__, os.path.join('data', 'quit.txt')).split('\n')
+QUIT_MSGS = [x for x in resource_string(__name__, os.path.join('data', 'quit.txt')).split('\n')
+             if x != '']
 
 class IRCServer(object):
     """
@@ -180,7 +181,7 @@ class Pinolo(irc.IRCClient):
 
 
     def reply(self, destination, message):
-        self.msg(destination, message.encode('utf-8', 'ignore'))
+        self.msg(destination, message.encode('utf-8', 'replace'))
 
 
     def quit(self, message):
