@@ -14,6 +14,7 @@ import time
 # import sys
 import re
 import socket
+import shlex
 from collections import namedtuple
 import random
 from pprint import pprint
@@ -192,7 +193,7 @@ class Pinolo(irc.IRCClient):
             self.reply(reply_to, reply)
 
     def handle_command(self, irc_user, channel, reply_to, msg):
-        arguments = re.split(r'\s+', msg)
+        arguments = shlex.split(msg)
         command = arguments.pop(0)
         req = Request(self, irc_user, channel, reply_to, command, arguments)
 
