@@ -18,21 +18,18 @@ import random
 from pprint import pprint
 from optparse import OptionParser
 
-from pkg_resources import resource_string
-
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
 from twisted.python import log
 
 from pinolo import IRCUser, Request
+from pinolo.casuale import random_quit, random_reply
 
 STATUS_ALIVE = 1
 STATUS_QUIT = 2
 
 JOIN_RETRY = 10
 
-QUIT_MSGS = [x for x in resource_string(__name__, os.path.join('data', 'quit.txt')).split('\n')
-             if x != '']
 
 class IRCServer(object):
     """
@@ -158,6 +155,10 @@ class Pinolo(irc.IRCClient):
         if msg.startswith('!'):
             self.handle_command(irc_user, channel, reply_to, msg[1:])
 
+        elif msg.startswith(self.nickname):
+            reply = "%s: %s" % (irc_user.nickname, random_reply())
+            self.reply(reply_to, reply)
+
     def handle_command(self, irc_user, channel, reply_to, msg):
         arguments = re.split(r'\s+', msg)
         command = arguments.pop(0)
@@ -177,7 +178,7 @@ class Pinolo(irc.IRCClient):
         # quit - with s3cur1ty thr0ugh MENESBATTOLEPALLE
         if (command == 'quit' and
             irc_user.nickname == 'sand'):
-            self.quit(random.choice(QUIT_MSGS))
+            self.quit(random_quit())
 
 
     def reply(self, destination, message):
