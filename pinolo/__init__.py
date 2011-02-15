@@ -41,8 +41,10 @@ class Request(object):
         self.command = command
         self.arguments = arguments[:]
 
-    def reply(self, message):
-        if self.reply_to.startswith('#'):
+    def reply(self, message, noprefix=False):
+
+        if (self.reply_to.startswith('#')
+            and not noprefix):
             self.client.reply(self.reply_to, "%s: %s" % (self.author.nickname,
                                                          message))
         else:

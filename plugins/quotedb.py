@@ -66,8 +66,8 @@ class Quote(Base):
 class QuotesDb(CommandPlugin):
     """This is a test plugin implementing Quotes"""
 
-    quote_opt = MyOptionParser(usage="!quote - !q : [options] [id]")
-    addq_opt = MyOptionParser(usage="!addquote - !addq : <quote da aggiungere>")
+    quote_opt = MyOptionParser(usage="!quote [options] [id]")
+    addq_opt = MyOptionParser(usage="!addquote <quote da aggiungere>")
 
     def activate(self, config):
         super(QuotesDb, self).activate()

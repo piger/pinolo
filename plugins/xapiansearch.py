@@ -69,6 +69,10 @@ class XapianSearch(CommandPlugin):
 
     def handle(self, request):
         if request.command in [ 'search' ]:
+            if not request.arguments:
+                request.reply("Cioe' bho io non lo so")
+                return
+
             matches = self.search(' '.join(request.arguments))
             num_results = matches.get_matches_estimated()
 
