@@ -68,7 +68,7 @@ class XapianSearch(CommandPlugin):
         self.database.add_document(doc)
 
     def handle(self, request):
-        if request.command in [ 'search' ]:
+        if request.command in [ 'search', 's' ]:
             if not request.arguments:
                 request.reply("Cioe' bho io non lo so")
                 return
