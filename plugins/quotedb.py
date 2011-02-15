@@ -63,20 +63,19 @@ class Quote(Base):
                                                      self.creation_date,
                                                      self.karma)
 
-class Prova(CommandPlugin):
+class QuotesDb(CommandPlugin):
     """This is a test plugin implementing Quotes"""
 
     quote_opt = MyOptionParser(usage="!quote - !q : [options] [id]")
     addq_opt = MyOptionParser(usage="!addquote - !addq : <quote da aggiungere>")
 
-    def __init__(self):
-        super(Prova, self).__init__()
-        self.db_file = 'sqlite:///' + DATABASE
+    def activate(self, config):
+        super(QuotesDb, self).activate()
+
+        self.db_file = 'sqlite:///' + config.quotes_db
         self.engine = None
         self.session = None
 
-    def activate(self):
-        super(Prova, self).activate()
         try:
             self.engine = create_engine(self.db_file, echo=False)
             Session = sessionmaker(bind=self.engine)
@@ -153,8 +152,9 @@ class Prova(CommandPlugin):
         self.session.commit()
 
         request.reply("Ho stipato la %i!" % quote.id)
+        pubsub.sendMessage('add_quote', data=quote)
 
 
-Prova.quote_opt.add_option("-c", "--contains", dest="contains",
+QuotesDb.quote_opt.add_option("-c", "--contains", dest="contains",
                            help="Prende un Quote che contiene TESTO",
                            metavar="TESTO")

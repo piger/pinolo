@@ -1,8 +1,0 @@
-[Core]
-Name = Zabbix Support
-Module = zabbixsearch
-
-[Documentation]
-Description = Zabbix search and database support
-Author = sand
-Version = 0.1

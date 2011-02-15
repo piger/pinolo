@@ -1,9 +1,15 @@
+import logging
 from collections import namedtuple
 import optparse
+
+from yapsy.IPlugin import IPlugin
+from yapsy.PluginManager import PluginManager
 
 
 # to track individual IRC users
 IRCUser = namedtuple('IRCUser', 'nickname ident hostname')
+Configuration = namedtuple('Configuration',
+                           'quotes_db xapian_db pidfile servers')
 
 # OptionParser subclassed for IRC commands
 class OptionParserError(Exception): pass
@@ -41,3 +47,33 @@ class Request(object):
                                                          message))
         else:
             self.client.reply(self.reply_to, message)
+
+
+class BasePlugin(IPlugin):
+    def init(self, config):
+        """Handle initial configuration through a ``config`` object"""
+        pass
+
+class UndefinedPlugin(BasePlugin): pass
+class CommandPlugin(BasePlugin): pass
+
+class PluginActivationError(Exception): pass
+
+
+class MyPluginManager(PluginManager):
+    def activatePluginByName(self, name, configuration, category="Default"):
+        """
+        Activate a plugin corresponding to a given category + name.
+        """
+
+        pta_item = self.getPluginByName(name, category)
+
+        if pta_item is not None:
+            plugin_to_activate = pta_item.plugin_object
+
+            if plugin_to_activate is not None:
+                logging.debug("Activating plugin: %s.%s"% (category,name))
+                plugin_to_activate.activate(configuration)
+                return plugin_to_activate
+
+            return None

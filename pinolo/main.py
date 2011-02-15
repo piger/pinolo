@@ -8,25 +8,18 @@ Configuration handling
 import sys
 import os
 import logging
-# from pprint import pprint
+from pprint import pprint
 from ConfigParser import SafeConfigParser, NoOptionError
 
 from twisted.python import log
 from twisted.internet import reactor, ssl
 
-from yapsy.PluginManager import PluginManager
-from yapsy.IPlugin import IPlugin
-
 from irc2 import IRCServer, PinoloFactory
+from pinolo import CommandPlugin, UndefinedPlugin, PluginActivationError
+from pinolo import MyPluginManager, Configuration
 
 
-class BasePlugin(IPlugin): pass
-class CommandPlugin(IPlugin): pass
-
-class PluginActivationError(Exception): pass
-
-
-def run_foreground(servers):
+def run_foreground(config):
     """Run pinolo in foreground.
     """
 
@@ -39,9 +32,9 @@ def run_foreground(servers):
                         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                         datefmt="%a, %d %b %Y %H:%M:%S")
 
-    pm = init_plugins()
+    pm = init_plugins(config)
 
-    f = PinoloFactory(pm, *servers)
+    f = PinoloFactory(pm, *config.servers)
 
     for server in f.servers:
         if server.ssl:
@@ -56,10 +49,10 @@ def run_foreground(servers):
 
     reactor.run()
 
-def init_plugins(plugin_dir='plugins'):
+def init_plugins(config, plugin_dir='plugins'):
     """Initialize Yapsy plugin system."""
 
-    pm = PluginManager(categories_filter={"Default": BasePlugin,
+    pm = MyPluginManager(categories_filter={"Default": UndefinedPlugin,
                                           "Commands": CommandPlugin,
                                          })
     pm.setPluginPlaces([plugin_dir])
@@ -68,8 +61,8 @@ def init_plugins(plugin_dir='plugins'):
     for category in pm.getCategories():
         for plugin in pm.getPluginsOfCategory(category):
             try:
-                pm.activatePluginByName(plugin.name, category)
                 log.msg("Activating plugin %s" % plugin.name)
+                pm.activatePluginByName(plugin.name, config, category=category)
             except PluginActivationError, e:
                 log.msg("Deactivating faulty plugin: %s (%r)" % (plugin.name, e))
                 pm.deactivatePluginByName(plugin.name, category)
@@ -84,21 +77,33 @@ def parse_config_file(filename):
                 "permissions." % filename)
         sys.exit(1)
 
+    dirname = os.path.dirname(os.path.abspath(filename))
+    pidfile = os.path.join(dirname, 'pinolo.pid')
+
     config = SafeConfigParser()
     config.read(filename)
     servers = []
+
+    quotes = None
+    xapian = None
 
     try:
         for section in [s for s in config.sections() if s.startswith('Server')]:
             server = _parse_server_config(config, section)
             servers.append(server)
 
+        quotes = os.path.join(dirname, config.get('Quotes', 'Database'))
+        xapian = os.path.join(dirname, config.get('Xapian', 'Database'))
+
     except NoOptionError, e:
         print _('[ERROR] Missing configuration parameter: "%s" in section "%s"' %
                 (e.option, section))
         sys.exit(1)
 
-    return servers
+    cfg = Configuration(quotes_db=quotes, xapian_db=xapian,
+                        pidfile=pidfile, servers=servers[:])
+
+    return cfg
 
 
 def _parse_server_config(config, section):
@@ -124,12 +129,18 @@ def _parse_server_config(config, section):
     else:
         password = None
 
-    if port == 9999:
+    if config.has_option(section, 'ssl'):
         ssl = True
     else:
         ssl = False
 
+    if config.has_option(section, 'nickserv'):
+        nickserv = config.get(section, 'nickserv')
+    else:
+        nickserv = None
+
     server = IRCServer(name, hostname, port, ssl, nickname,
-                       altnickname, channels=channels)
+                       altnickname, channels=channels,
+                       nickserv=nickserv)
 
     return server

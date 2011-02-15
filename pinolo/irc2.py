@@ -10,6 +10,7 @@ tiene traccia delle configurazioni e dei client (connessioni).
 """
 
 import os
+import time
 # import sys
 import re
 import socket
@@ -26,6 +27,7 @@ from pinolo import IRCUser, Request
 from pinolo.casuale import random_quit, random_reply
 
 STATUS_ALIVE = 1
+
 STATUS_QUIT = 2
 
 JOIN_RETRY = 10
@@ -56,7 +58,7 @@ class IRCServer(object):
     """
 
     def __init__(self, name, hostname, port, ssl, nickname, altnickname,
-                 ident='pinolo', realname='pinot di pinolo',
+                 nickserv=None, ident='pinolo', realname='pinot di pinolo',
                  channels=None):
         self.name = name
         self.hostname = hostname
@@ -65,6 +67,7 @@ class IRCServer(object):
         self.ssl = ssl
         self.nickname = nickname
         self.altnickname = altnickname
+        self.nickserv = nickserv
         self.ident = ident
         self.realname = realname
         if channels:
@@ -99,10 +102,19 @@ class Pinolo(irc.IRCClient):
         return self.config.ident
     username = property(_get_username)
 
-    def _get_current_nickname(self):
-        return self.config.current_nickname
-    currnickname = property(_get_current_nickname)
+    sourceURL = 'http://code.dyne.org/?r=pinolo'
+    versionName = 'pinolo'
+    versionNum = '1.0'
+    versionEnv = 'FECAL-PARADIGMA'
 
+    # Minimum delay between lines sent to the server. If None, no delay will be
+    # imposed. (type: Number of Seconds. )
+    lineRate = 0.7
+
+    def __init__(self):
+        """NOTE: irc.IRCClient doesn't have __init__ ?"""
+
+        self.channels = []
 
     def signedOn(self):
         # il server
@@ -114,18 +126,33 @@ class Pinolo(irc.IRCClient):
                                      peer.host, int(peer.port))
         log.msg("Connection info: " + info)
 
+        if self.config.nickserv:
+            self.whisper_nickserv()
+
         self.join_channels()
 
 
-    #def joined(self, channel):
-    #    print "joined", channel
-    #    self.quit("me ne vado")
+    def whisper_nickserv(self):
+        msg = "IDENTIFY %s" % self.config.nickserv
+        self.msg('NickServ', msg)
+        time.sleep(2)
+
+    def joined(self, channel):
+        self.channels.append(channel)
+
+    def left(self, channel):
+        self.channels.remove(channel)
+
+    def kickedFrom(self, channel, kicker, message):
+        self.channels.remove(channel)
+        self.join(channel)
 
     def join_channels(self):
         for channel in self.config.channels:
-            self.join(channel)
+            if channel not in self.channels:
+                self.join(channel)
 
-        #reactor.callLater(JOIN_RETRY, self.join_channels)
+        reactor.callLater(JOIN_RETRY, self.join_channels)
 
 
     def parse_userhost(self, userhost):
