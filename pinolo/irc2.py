@@ -58,7 +58,7 @@ class IRCServer(object):
     """
 
     def __init__(self, name, hostname, port, ssl, nickname, altnickname,
-                 nickserv=None, ident='pinolo', realname='pinot di pinolo',
+                 nickserv=None, password=None, ident='pinolo', realname='pinot di pinolo',
                  channels=None):
         self.name = name
         self.hostname = hostname
@@ -68,6 +68,7 @@ class IRCServer(object):
         self.nickname = nickname
         self.altnickname = altnickname
         self.nickserv = nickserv
+        self.password = password
         self.ident = ident
         self.realname = realname
         if channels:
@@ -101,6 +102,10 @@ class Pinolo(irc.IRCClient):
     def _get_username(self):
         return self.config.ident
     username = property(_get_username)
+
+    def _get_password(self):
+        return self.config.password
+    password = property(_get_password)
 
     sourceURL = 'http://code.dyne.org/?r=pinolo'
     versionName = 'pinolo'
@@ -174,7 +179,7 @@ class Pinolo(irc.IRCClient):
     def privmsg(self, user, channel, msg):
         """Handle public and private privmsg's"""
 
-        log.msg("Message from: user=%s channel=%s msg='%s'" % (user, channel, msg))
+        # log.msg("Message from: user=%s channel=%s msg='%s'" % (user, channel, msg))
         irc_user = self.parse_userhost(user)
 
         reply_to = irc_user.nickname if channel == self.nickname else channel
@@ -212,10 +217,18 @@ class Pinolo(irc.IRCClient):
         self.msg(destination, message.encode('utf-8', 'replace'))
 
 
-    def quit(self, message):
+    def quit(self, message=None):
+        if message is None:
+            message = random_quit()
+
         log.msg("Quitting from %s" % self.config.name)
         self.config.status = STATUS_QUIT
         irc.IRCClient.quit(self, message)
+
+
+    def irc_ERR_PASSWDMISMATCH(self, prefix, params):
+        log.msg("The server <%s> didn't like my password" % self.config.name)
+        self.quit()
 
 
 class PinoloFactory(protocol.ReconnectingClientFactory):

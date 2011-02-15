@@ -140,7 +140,7 @@ def _parse_server_config(config, section):
         nickserv = None
 
     server = IRCServer(name, hostname, port, ssl, nickname,
-                       altnickname, channels=channels,
+                       altnickname, password=password, channels=channels,
                        nickserv=nickserv)
 
     return server
