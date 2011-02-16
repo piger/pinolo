@@ -40,22 +40,21 @@ class IRCServer(object):
     Pinolo si collega.
 
     Parametri di configurazione:
-        `name`: il nome assegnato a questo server
-        `hostname`: hostname o IPv4 del server
-        `port`: la porta (int) a cui collegarsi
-        `ssl`: (bool) se utilizzare SSL per collegarsi
-        `nickname`: il nickname da utilizzare
-        `altnickname`: il nickname da utilizzare se `nickname` e' gia' preso
-        `ident`: lo ident o username (appare nel WHOIS come ident@hostname: Real
-        Name)
-        `realname`: il realname per il WHOIS
-        `channels`: una lista di canali a cui collegarsi.
+        - ``name``: il nome assegnato a questo server
+        - ``hostname``: hostname o IPv4 del server
+        - ``port``: la porta (int) a cui collegarsi
+        - ``ssl``: (bool) se utilizzare SSL per collegarsi
+        - ``nickname``: il nickname da utilizzare
+        - ``altnickname``: il nickname da utilizzare se ``nickname`` e' gia' preso
+        - ``ident``: lo ident o username (appare nel WHOIS come ident@hostname: Real
+        - Name)
+        - ``realname``: il realname per il WHOIS
+        - ``channels``: una lista di canali a cui collegarsi.
 
     NOTE:
         - self.address viene determinato runtime con socket.gethostbyname()
         - self.connector e' il connector di questo Protocol ma non lo uso.
-        - self.status e' lo stato della connessione, utile per determinare un
-        QUIT definitivo.
+        - self.status e' lo stato della connessione, utile per determinare un QUIT definitivo.
     """
 
     def __init__(self, name, hostname, port, ssl, nickname, altnickname,
