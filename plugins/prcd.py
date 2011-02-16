@@ -171,7 +171,7 @@ class Prcd(CommandPlugin):
         formina = culo.read()
         #formina = formina.strip()
 
-        request.reply(formina, noprefix=True)
+        request.reply(formina, prefix=False)
 
 
 Prcd.prcd_opt.add_option('-c', '--category', dest='category',

@@ -185,16 +185,14 @@ class Pinolo(irc.IRCClient):
 
         reply_to = irc_user.nickname if channel == self.nickname else channel
 
-        if msg.startswith('!'):
+        if msg.startswith('!') and len(msg) > 1:
             self.handle_command(irc_user, channel, reply_to, msg[1:])
 
         elif msg.startswith(self.nickname):
-            reply = "%s: %s" % (irc_user.nickname, random_reply())
-            self.reply(reply_to, reply)
+            self.reply(reply_to, random_reply(irc_user.nickname))
 
     def handle_command(self, irc_user, channel, reply_to, msg):
-        arguments = shlex.split(msg)
-        command = arguments.pop(0)
+        (command, arguments) = self.parse_command(msg)
         req = Request(self, irc_user, channel, reply_to, command, arguments)
 
         pm = self.factory.plugin_manager
@@ -212,6 +210,20 @@ class Pinolo(irc.IRCClient):
         if (command == 'quit' and
             irc_user.nickname == 'sand'):
             self.quit(random_quit())
+
+    def parse_command(self, message):
+        """Extract command and arguments from an IRC text line.
+
+        Use ``shlex`` to split text in a shell-like fashion so quoted text is
+        preserved; returns a tuple with ``command`` (a string) and ``arguments``
+        (a possibly empty list).
+        ``arguments`` can be parsed by ``optparse``.
+        """
+
+        arguments = shlex.split(message)
+        command = arguments.pop(0)
+
+        return (command, arguments)
 
 
     def reply(self, destination, message):

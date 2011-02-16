@@ -21,5 +21,10 @@ _random_replies = _read_flat_file(REPLY_FILE)
 def random_quit():
     return random.choice(_random_quits)
 
-def random_reply():
-    return random.choice(_random_replies)
+def random_reply(subject=None):
+    reply = random.choice(_random_replies)
+
+    if subject:
+        return subject + ': ' + reply
+    else:
+        return reply
