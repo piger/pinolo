@@ -164,12 +164,15 @@ class Prcd(CommandPlugin):
                                 stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT)
-        (bocca, culo) = (pope.stdin, pope.stdout)
-        bocca.write(moccolo)
-        bocca.close()
 
-        formina = culo.read()
-        #formina = formina.strip()
+        # <_ale> se moccolo son piu' di 4k riempi il pipe buffer e si inchioda tutto
+        # (bocca, culo) = (pope.stdin, pope.stdout)
+        # bocca.write(moccolo)
+        # bocca.close()
+        # formina = culo.read()
+
+        (parole, vomito) = pope.communicate(moccolo)
+        formina = parole.read()
 
         request.reply(formina, prefix=False)
 
