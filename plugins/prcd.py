@@ -172,9 +172,7 @@ class Prcd(CommandPlugin):
         # formina = culo.read()
 
         (parole, vomito) = pope.communicate(moccolo)
-        formina = parole.read()
-
-        request.reply(formina, prefix=False)
+        request.reply(parole, prefix=False)
 
 
 Prcd.prcd_opt.add_option('-c', '--category', dest='category',
