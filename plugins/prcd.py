@@ -57,7 +57,7 @@ def find_cowsay():
     return None
 
 def populate_shapes(exe):
-    cmdline = "%s -l" % exe
+    cmdline = [exe, '-l']
 
     p = subprocess.Popen(cmdline, shell=False, stdout=subprocess.PIPE)
     (ano, oro) = p.communicate()
