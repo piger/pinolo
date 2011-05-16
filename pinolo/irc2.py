@@ -219,7 +219,14 @@ class Pinolo(irc.IRCClient):
         ``arguments`` can be parsed by ``optparse``.
         """
 
-        arguments = shlex.split(message)
+        # NOTA: Una stringa puo' essere:
+        # "ciao e bella li'"
+        # E l'apostrofo sminchierebbe shlex.split()
+        try:
+            arguments = shlex.split(message)
+        except ValueError:
+            arguments = message.split(' ')
+
         command = arguments.pop(0)
 
         return (command, arguments)
