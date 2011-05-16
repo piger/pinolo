@@ -56,6 +56,20 @@ def find_cowsay():
 
     return None
 
+def populate_shapes(exe):
+    cmdline = "%s -l" % exe
+
+    p = subprocess.Popen(cmdline, shell=False, stdout=subprocess.PIPE)
+    (ano, oro) = p.communicate()
+    ano = ano.split("\n")
+    ano = ano[1:]
+
+    shapes = []
+
+    for line in ano:
+        shapes.extend([x for x in line.split(" ") if x != ""])
+
+    return shapes
 
 def setup_prcd_database():
     """Read all the prcd files and build the database"""
@@ -93,6 +107,8 @@ class Prcd(CommandPlugin):
 
         self.prcd_db = setup_prcd_database()
         self.cowsay_bin = find_cowsay()
+        # Popola le shape usando "cowsay -l"
+        COWSAY_SHAPES = populate_shapes(self.cowsay_bin)
 
     def handle(self, request):
         if request.command in [ 'prcd' ]:
