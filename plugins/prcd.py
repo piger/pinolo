@@ -188,7 +188,10 @@ class Prcd(CommandPlugin):
         # formina = culo.read()
 
         (parole, vomito) = pope.communicate(moccolo)
-        request.reply(parole, prefix=False)
+        for riga in parole.split("\n"):
+            if riga == "":
+                continue
+            request.reply(riga, prefix=False)
 
 
 Prcd.prcd_opt.add_option('-c', '--category', dest='category',
