@@ -57,6 +57,15 @@ class Request(object):
         self.arguments = arguments[:]
 
     def reply(self, message, prefix=True):
+        """Con questo barbatrucco posso vomitare su IRC anche le newline senza sbattimento"""
+        if "\n" in message:
+            for line in message.split("\n"):
+                self._reply(line, prefix)
+
+        else:
+            self._reply(message, prefix)
+
+    def _reply(self, message, prefix=True):
         """Reply to channel or user (see self.reply_to).
 
         With ``prefix`` set to False will NOT prefix the user nickname to the
