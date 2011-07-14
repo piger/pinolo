@@ -28,8 +28,9 @@ class SearchResult(object):
         self.url = result['url']
         self.content = strip_html(result['content'])
 
-    def __repr__(self):
-        return "%s - %s {%s}" % (self.title, self.url, self.content)
+    def as_string(self):
+        result = "%s - %s {%s}" % (self.title, self.url, self.content)
+        return result.encode('utf-8', 'replace')
 
 def strip_html(blob):
     s = BeautifulSoup(blob, convertEntities=BeautifulSoup.HTML_ENTITIES)
@@ -52,6 +53,10 @@ def query_google(search):
     return results
 
 
+for result in query_google("la pompa"):
+    r = SearchResult(result)
+    print r
+
 class SearchCommand(CommandPlugin):
     search_opt = MyOptionParser(usage="!g <query string>")
 
@@ -69,6 +74,4 @@ class SearchCommand(CommandPlugin):
 
             for result in results:
                 r = SearchResult(result)
-                reply = "%s: %s {%s}" % (r.title, r.url, r.content)
-                reply = reply.encode('utf-8', 'strict')
-                request.reply(reply)
+                request.reply(r.as_string())
