@@ -168,10 +168,11 @@ class Pinolo(irc.IRCClient):
 
         if m is None:
             log.msg("Invalid userhost: '%s'" % userhost)
-            raise RuntimeError("Invalid userhost string: %s" % userhost)
-
-        info = m.groupdict()
-        user = IRCUser(info['nickname'], info['ident'], info['hostname'])
+            # raise RuntimeError("Invalid userhost string: %s" % userhost)
+            user = IRCUser(userhost, userhost, userhost)
+        else:
+            info = m.groupdict()
+            user = IRCUser(info['nickname'], info['ident'], info['hostname'])
 
         return user
 
