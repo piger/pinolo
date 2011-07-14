@@ -69,4 +69,6 @@ class SearchCommand(CommandPlugin):
 
             for result in results:
                 r = SearchResult(result)
-                request.reply("%s: %s {%s}" % (r.title, r.url, r.content))
+                reply = "%s: %s {%s}" % (r.title, r.url, r.content)
+                reply = reply.encode('utf-8', 'strict')
+                request.reply(reply)
