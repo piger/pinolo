@@ -53,10 +53,6 @@ def query_google(search):
     return results
 
 
-for result in query_google("la pompa"):
-    r = SearchResult(result)
-    print r
-
 class SearchCommand(CommandPlugin):
     search_opt = MyOptionParser(usage="!g <query string>")
 
