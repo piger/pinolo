@@ -55,6 +55,9 @@ def query_google(search):
 class SearchCommand(CommandPlugin):
     search_opt = MyOptionParser(usage="!g <query string>")
 
+    def activate(self, config=None):
+        super(SearchCommand, self).activate()
+
     def handle(self, request):
         if request.command in ['google', 'g']:
             if not request.arguments:
