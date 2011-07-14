@@ -24,9 +24,9 @@ def utf8(text):
 
 class SearchResult(object):
     def __init__(self, result):
-        self.title = utf8(result['titleNoFormatting'])
-        self.url = utf8(result['url'])
-        self.content = utf8(strip_html(result['content']))
+        self.title = result['titleNoFormatting']
+        self.url = result['url']
+        self.content = strip_html(result['content'])
 
     def __repr__(self):
         return "%s - %s {%s}" % (self.title, self.url, self.content)
