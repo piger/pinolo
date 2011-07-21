@@ -30,7 +30,8 @@ class SearchResult(object):
 
     def as_string(self):
         result = "%s - %s {%s}" % (self.title, self.url, self.content)
-        return result.encode('utf-8', 'replace')
+        return result
+        #return result.encode('utf-8', 'replace')
 
 def strip_html(blob):
     s = BeautifulSoup(blob, convertEntities=BeautifulSoup.HTML_ENTITIES)
