@@ -9,27 +9,20 @@ https://gist.github.com/676306
 
 import sys, os, re
 import time
-from collections import defaultdict
 import logging
 import imp
 
 import gevent
-from gevent.queue import Queue
 from gevent.core import timer
 from gevent import socket, ssl
 
-import plugins
+import pinolo.plugins
 from pinolo import FULL_VERSION
 from pinolo.database import init_db
 from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
 from pinolo.utils import decode_text
 
-logging.basicConfig(level=logging.DEBUG,
-                    format="%(asctime)s %(name)s %(filename)s:%(funcName)s:%(lineno)d "
-                    "%(levelname)s %(message)s")
-
-# levels: debug, info, warning, error, critical
 logger = logging.getLogger('pinolo.irc')
 
 usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
@@ -388,7 +381,7 @@ class BigHead(object):
                 logger.info(u"Plugin import: %s" % name)
                 plugin = imp.load_source(name, os.path.join(root, filename))
 
-        for plugin_name, plugin_cls in plugins.registry:
+        for plugin_name, plugin_cls in pinolo.plugins.registry:
             self.plugins.append(plugin_cls(self))
             COMMAND_ALIASES.update(plugin_cls.COMMAND_ALIASES.items())
 
