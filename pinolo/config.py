@@ -2,6 +2,8 @@ import os, sys, re
 from ConfigParser import SafeConfigParser
 from collections import namedtuple
 
+from pinolo import DEFAULT_DATABASE_FILENAME
+
 class ConfigError(Exception): pass
 class ConfigFilesNotFound(ConfigError): pass
 
@@ -46,16 +48,6 @@ def read_config_files(filenames):
         cfg.servers[section] = srv
 
     return cfg
-
-    # config['servers'] = {}
-    # for section in config.keys():
-    #     if section not in ('general', 'servers'):
-    #         config['servers'][section] = Config('servers', **config[section])
-    #         del config[section]
-    # config["general"] = Config('general', **config["general"])
-    # # config["servers"] = config["servers"])
-
-    # return Config('global', **config)
 
 numeric_options = ('port',)
 boolean_options = ('ssl',)
@@ -120,3 +112,5 @@ class ServerConfig(NewConfig):
         self.password = password
         self.nickname = nickname
 
+def database_filename(datadir):
+    return "sqlite:///" + os.path.join(datadir, DEFAULT_DATABASE_FILENAME)

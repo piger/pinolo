@@ -17,22 +17,17 @@ from gevent.core import timer
 from gevent import socket, ssl
 
 import pinolo.plugins
-from pinolo import FULL_VERSION
+from pinolo import FULL_VERSION, EOF_RECONNECT_TIME, FAILED_CONNECTION_RECONNECT_TIME
 from pinolo.database import init_db
 from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
 from pinolo.utils import decode_text
-
-logger = logging.getLogger('pinolo.irc')
+from pinolo.config import database_filename
 
 usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
 
 NEWLINE = '\r\n'
 CTCPCHR = '\x01'
-
-# in seconds
-EOF_RECONNECT_TIME = 60
-FAILED_CONNECTION_RECONNECT_TIME = 120
 
 COMMAND_ALIASES = {
     's': 'search',
@@ -118,7 +113,7 @@ class IRCClient(object):
         self.stream = None
         self.throttle_out = 0.5
         self._last_write_time = 0
-        self.logger = logging.getLogger('pinolo.c.' + self.name)
+        self.logger = logging.getLogger('pinolo.irc.' + self.name)
         self.running = False
 
     def connect(self):
@@ -225,11 +220,12 @@ class IRCClient(object):
         # qui siamo a EOF!
 
         if self.running:
-            logger.warning(u"EOF from server? Sleeping %i seconds before "
-                           "reconnecting" % EOF_RECONNECT_TIME)
+            self.logger.warning(u"EOF from server? Sleeping %i seconds before "
+                                "reconnecting" % EOF_RECONNECT_TIME)
             gevent.sleep(EOF_RECONNECT_TIME)
-            logger.info(u"Reconnecting to %s:%d (%s)" % (self.config.address, self.config.port,
-                                                         self.name))
+            self.logger.info(u"Reconnecting to %s:%d (%s)" % (self.config.address,
+                                                              self.config.port,
+                                                              self.name))
             self.connect()
 
     def send_cmd(self, cmd):
@@ -301,9 +297,7 @@ class IRCClient(object):
             self.join(channel)
 
     def on_PING(self, event):
-        # 2011-08-22 17:46:05,174 ragazzo.c.azzurra irc.py:event_loop:176 DEBUG IN: PING :tophost.azzurra.org
-
-        # 2011-08-22 17:46:05,174 ragazzo.c.azzurra irc.py:event_loop:218 DEBUG EVENT: <IRCEvent(<IRCUser(nickname:None, None@None)>, command: PING, argstr: :tophost.azzurra.org, args: [':tophost.azzurra.org'], text: u'')>
+        self.logger.debug("PING from server")
         self.send_cmd(u"PONG %s" % event.argstr)
 
     def on_PRIVMSG(self, event):
@@ -327,10 +321,10 @@ class IRCClient(object):
         gevent.sleep(1)
         self.join(channel)
 
-    # ERROR :Closing Link: host31-212-dynamic.244-95-r.retail.telecomitalia.it (Quit: keyboard-interrupt)
-    #2011-08-13 00:11:42,852 ragazzo.azzurra irc.py:event_loop:176 DEBUG nickname: None, ident: None, hostname: None, command: ERROR, argstr: :Closing Link: host31-212-dynamic.244-95-r.retail.telecomitalia.it (Quit: keyboard-interrupt), args: [':Closing', 'Link:', 'host31-212-dynamic.244-95-r.retail.telecomitalia.it', '(Quit:', 'keyboard-interrupt)'], text:
     def on_ERROR(self, event):
-        pass
+        # skip if it's our /quit command
+        if '(Quit:' in event.argstr: return
+        self.logger.warning("ERROR from server: %s" % event.argstr)
 
     def on_cmd_quit(self, event):
         if event.user.nickname == u'sand':
@@ -373,12 +367,13 @@ class BigHead(object):
         self.config = config		# la config globale
         self.connections = {}
         self.plugins = []
+        self.logger = logging.getLogger('pinolo.head')
 
         for root, dirs, files in os.walk("plugins"):
             for filename in files:
                 if (filename.startswith('_') or not filename.endswith('.py')): continue
                 name = filename.split('.')[0]
-                logger.info(u"Plugin import: %s" % name)
+                self.logger.info(u"Plugin import: %s" % name)
                 plugin = imp.load_source(name, os.path.join(root, filename))
 
         for plugin_name, plugin_cls in pinolo.plugins.registry:
@@ -386,7 +381,7 @@ class BigHead(object):
             COMMAND_ALIASES.update(plugin_cls.COMMAND_ALIASES.items())
 
         # init db
-        db_uri = 'sqlite:///' + os.path.join(self.config.datadir, 'db.sqlite')
+        db_uri = database_filename(self.config.datadir)
         init_db(db_uri)
 
         # activate plugins
