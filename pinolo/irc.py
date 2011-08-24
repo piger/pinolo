@@ -24,6 +24,7 @@ from pinolo.cowsay import cowsay
 from pinolo.utils import decode_text
 from pinolo.config import database_filename
 from pinolo.casuale import get_random_quit, get_random_reply
+from pinolo.google import search_google
 
 usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
 
@@ -32,6 +33,7 @@ CTCPCHR = '\x01'
 
 COMMAND_ALIASES = {
     's': 'search',
+    'g': 'google',
 }
 
 def parse_usermask(usermask):
@@ -366,6 +368,15 @@ class IRCClient(object):
             for line in text:
                 if line:
                     event.reply(line, prefix=False)
+
+    def on_cmd_google(self, event):
+        if not event.text: return
+        results = search_google(event.text)
+        if not results:
+            event.reply(u"Non so niente, non ho visto niente.")
+        else:
+            for title, url, content in results:
+                event.reply(u"%s - %s - %s" % (title, url, content))
 
 
 class BigHead(object):
