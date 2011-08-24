@@ -19,18 +19,18 @@ from gevent.core import timer
 from gevent import socket, ssl
 
 import plugins
-from ragazzo import FULL_VERSION
-from ragazzo.database import init_db
-from ragazzo.prcd import moccolo_random, prcd_categories
-from ragazzo.cowsay import cowsay
-from ragazzo.utils import decode_text
+from pinolo import FULL_VERSION
+from pinolo.database import init_db
+from pinolo.prcd import moccolo_random, prcd_categories
+from pinolo.cowsay import cowsay
+from pinolo.utils import decode_text
 
 logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s %(name)s %(filename)s:%(funcName)s:%(lineno)d "
                     "%(levelname)s %(message)s")
 
 # levels: debug, info, warning, error, critical
-logger = logging.getLogger('ragazzo')
+logger = logging.getLogger('pinolo.irc')
 
 usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
 
@@ -125,7 +125,7 @@ class IRCClient(object):
         self.stream = None
         self.throttle_out = 0.5
         self._last_write_time = 0
-        self.logger = logging.getLogger('ragazzo.c.' + self.name)
+        self.logger = logging.getLogger('pinolo.c.' + self.name)
         self.running = False
 
     def connect(self):

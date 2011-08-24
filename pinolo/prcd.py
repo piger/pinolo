@@ -5,7 +5,7 @@ import pkg_resources
 import logging
 import random
 
-logger = logging.getLogger('ragazzo.prcd')
+logger = logging.getLogger('pinolo.prcd')
 
 PRCD_FILES = [
     'prcd_cri.txt',

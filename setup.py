@@ -9,13 +9,14 @@ setup(
     author="sand",
     author_email="daniel@spatof.org",
     url="http://code.dyne.org",
+    # xapian
     install_requires=["gevent", "SQLAlchemy"],
     setup_requires=[],
     zip_safe=False,
     packages=find_packages(),
     entry_points={
         "console_scripts": [
-            "bau = bau.miao:main",
+            "pinolo = pinolo.main:main",
         ],
     },
 )

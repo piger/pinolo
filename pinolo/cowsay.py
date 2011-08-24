@@ -5,7 +5,7 @@ import subprocess
 import random
 import shlex
 
-logger = logging.getLogger('ragazzo.cowsay')
+logger = logging.getLogger('pinolo.cowsay')
 
 # le flag per modificare gli occhi della mucca
 eyes_flags = ('b', 'd', 'g', 'p', 's', 't', 'w', 'y', '')
