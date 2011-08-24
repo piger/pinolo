@@ -1,462 +1,415 @@
-# Copyright (C) 2010-2011 sand <daniel@spatof.org>
-#
-# Redistribution and use in source and binary forms, with or without modification,
-# are permitted provided that the following conditions are met:
-# 
-# 1. Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation and/or
-#    other materials provided with the distribution.
-# 3. The name of the author nor the names of its contributors may be used to
-#    endorse or promote products derived from this software without specific prior
-#    written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
-# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
-# EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-# IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+"""
 
-from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol
-from twisted.python import log
-import re
-import db
-import random
-import subprocess
-import utils
-#import mh_python
-from time import sleep
-import string
-import os
+Ispirato da:
+https://gist.github.com/676306
 
-from pprint import pprint
-from prcd import Prcd
+"""
 
-from search import Searcher
+import sys, os, re
+import time
+import logging
+import imp
 
-VALID_CMD_CHARS = string.ascii_letters + string.digits + '_'
+import gevent
+from gevent.core import timer
+from gevent import socket, ssl
 
+import pinolo.plugins
+from pinolo import FULL_VERSION, EOF_RECONNECT_TIME, FAILED_CONNECTION_RECONNECT_TIME
+from pinolo.database import init_db
+from pinolo.prcd import moccolo_random, prcd_categories
+from pinolo.cowsay import cowsay
+from pinolo.utils import decode_text
+from pinolo.config import database_filename
+from pinolo.casuale import get_random_quit, get_random_reply
 
-class Pinolo(irc.IRCClient):
-    """the protocol"""
+usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
 
-    def _get_nickname(self):
-        return self._get_config()['nickname']
+NEWLINE = '\r\n'
+CTCPCHR = '\x01'
 
-    def _get_password(self):
-        return self._get_config()['password']
+COMMAND_ALIASES = {
+    's': 'search',
+}
 
-    def _get_config(self):
-        #return self.factory.config_from_name(self.name)
-        name = self.transport.connector.name
-        return self.factory.config_from_name(name)
+def parse_usermask(usermask):
+    """Ritorna una tupla con (nickname, ident, hostname)
 
-    nickname = property(_get_nickname)
-    password = property(_get_password)
-    realname = 'pinot di pinolo'
-    username = 'suca'
-    sourceURL = 'http://github.com/piger/pinolo'
+    ... oppure raisa una Exception
+    """
+    match = usermask_re.match(usermask)
+    if match:
+        return match.groups()
+    else:
+        raise RuntimeError(u"Invalid usermask: %s" % usermask)
 
-    versionName = 'pinolo'
-    versionNum = '0.2.1a'
-    versionEnv = 'gnu\LINUCS'
+class IRCUser(object):
+    """
+    Un utente IRC.
+    """
+    def __init__(self, ident, hostname, nickname):
+        self.ident, self.hostname, self.nickname = ident, hostname, nickname
 
-    # Minimum delay between lines sent to the server. If None, no delay will be
-    # imposed. (type: Number of Seconds. )
-    lineRate = 1
+    def __repr__(self):
+        return u"<IRCUser(nickname:%s, %s@%s)>" % (self.nickname, self.ident, self.hostname)
 
-    joined_channels = []
+class IRCEvent(object):
+    """
+    Un evento IRC generico.
+    """
 
-    dumbReplies = (
-            "pinot di pinolo",
-            "sugo di cazzo?",
-            "cazzoddio",
-            "non ho capito",
-            "non voglio capirti",
-            "mi stai sul cazzo",
-            "odio l'olio",
-            "famose na canna",
-            "sono nato per deficere",
-            "mi sto cagando addosso"
-    )
+    def __init__(self, client, user, command, argstr, args=None, text=None):
+        self.client = client
+        self.user = user
+        self.command = command
+        self.argstr = argstr
+        if args:
+            self.args = args[:]
+        else:
+            self.args = []
+        self.text = text
 
-    def connectionMade(self):
-        """Called when a connection is made.
+    @property
+    def nickname(self):
+        return self.user.nickname
 
-        This may be considered the initializer of the protocol, because it is
-        called when the connection is completed. For clients, this is called
-        once the connection to the server has been established; for servers,
-        this is called after an accept() call stops blocking and a socket has
-        been received. If you need to send any greeting or initial message, do
-        it here. 
+    def reply(self, message, prefix=True):
         """
+        Manda un PRIVMSG di risposta all'evento, scrivendo in canale se si tratta
+        di un evento pubblico o in query se l'evento e' privato.
+        """
+        assert type(message) is unicode
+        assert type(self.user.nickname is unicode)
 
-        irc.IRCClient.connectionMade(self)
-        # self.factory.clients.append(self)
+        recipient = self.args[0]
+        if recipient.startswith('#'):
+            if prefix:
+                message = u"%s: %s" % (self.user.nickname, message)
+            self.client.msg(recipient, message)
+        else:
+            self.client.msg(self.user.nickname, message)
 
-        config = self._get_config()
-        log.msg("Connected to %s:%i (Protocol)" % (config['address'],
-                                                   config['port']))
+    def __repr__(self):
+        return u"<IRCEvent(%r, command: %s, argstr: %s, " \
+               "args: %r, text: %r)>" % (self.user, self.command, self.argstr, self.args,
+                                         self.text)
 
-    def connectionLost(self, reason):
-        irc.IRCClient.connectionLost(self, reason)
-        config = self._get_config()
-        log.msg("Connection lost from %s:%i (Protocol)" % (config['address'],
-                                                   config['port']))
-        self.factory.clients.remove(self)
 
-    def clean_quit(self, reason=None):
-        if reason is None:
-            reason = "ATTUO IL DE CESSO DE BOCCA"
+class IRCClient(object):
+    """
+    Un client IRC (bot) con gevent.
+    """
 
-        # dice a ReconnectingClientFactory di non riconnettersi
-        self.factory.stopTrying()
-        self.quit(reason)
-        #self.transport.loseConnection()
+    def __init__(self, name, config, general_config, head):
+        self.name = name
+        self.config = config
+        self.general_config = general_config
+        self.head = head
 
-    def receivedMOTD(self, motd):
-        #def signedOn(self):
-        # IL MALEDETTO NICKSERV
-        ns_pass = self._get_config()['password']
-        if ns_pass is not None:
-            identify_txt = "IDENTIFY " + ns_pass
+        self.nickname = self.config.nickname
+        self.current_nickname = self.nickname
 
-            if self._get_config()['name'] == 'azzurra':
-                self.msg('NickServ', identify_txt)
-                # sleep(2)
+        self.socket = None
+        self.stream = None
+        self.throttle_out = 0.5
+        self._last_write_time = 0
+        self.logger = logging.getLogger('pinolo.irc.' + self.name)
+        self.running = False
 
-        log.msg("Signed on as %s." % (self.nickname))
-        #self.join_chans()
-        reactor.callLater(2, self.join_chans)
+    def connect(self):
+        while True:
+            try:
+                self._connect()
+            except socket.error, e:
+                print u"[*] ERROR: Failed connecting to: %s:%d " \
+                      "(%s) - %s" % (self.config.address, self.config.port,
+                                     self.name, str(e))
+                print u"[*] Sleeping %i seconds before reconnecting" % FAILED_CONNECTION_RECONNECT_TIME
+                gevent.sleep(FAILED_CONNECTION_RECONNECT_TIME)
+            else:
+                break
 
-    def join_chans(self):
-        for chan in self._get_config()['channels']:
-            self.join(chan)
+    def _connect(self):
+        """
+        Si connette al server IRC, fa partire i loop read/write e si autentica
+        al server; infine fa partire l'event loop.
+        """
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if self.config.ssl:
+            self.socket = ssl.wrap_socket(self.socket)
+        self.stream = self.socket.makefile()
+        self.socket.connect((self.config.address, self.config.port))
+        print u"[*] Connected to: %s:%d (%s)" % (self.config.address, self.config.port,
+                                                self.name)
 
-        reactor.callLater(10, self.check_channels)
+        gevent.sleep(1)
+        self.running = True
+        self.login_to_server()
+        self.event_loop()
 
-    def check_channels(self):
-        channels = self._get_config()['channels']
-        for channel in channels:
-            if channel not in self.joined_channels:
-                self.join(channel)
-        reactor.callLater(10, self.check_channels)
+    def login_to_server(self):
+        """
+        Effettua il "login" nel server IRC, inviando la `password` se necessario.
+        NOTA: rendere le "flag utente" configurabili? (+invisibile, etc)
+        """
+        if self.config.password:
+            self.send_cmd(u"PASS %s" % self.config.password)
+        self.send_cmd(u"NICK %s" % self.nickname)
+        self.send_cmd(u"USER %s 8 * :%s\n" % (self.general_config.ident,
+                                              self.general_config.realname))
 
-    def joined(self, channel):
-        log.msg("Joined %s." % (channel))
-        self.joined_channels.append(channel)
+    def event_loop(self):
+        """
+        Gestisce gli eventi da IRC.
 
-    def kickedFrom(self, channel, kicker, message):
-        self.joined_channels.remove(channel)
+        In questo caso ogni `riga` da IRC e' un evento, va percio' parsata e costruito
+        un oggetto `Evento` da passare agli handler.
 
+        For all of the rest of these messages, there is a source on
+        the other messages from the server side. This is a user and
+        hostmask for a user's message, and a server name otherwise. If
+        you are writing a client, do not send the :source part.
+        """
+        for line in self.stream:
+            line = line.strip()
+            line = decode_text(line)
+
+            self.logger.debug(u"IN: %s" % line)
+
+            if line.startswith(u':'):
+                source, line = line[1:].split(u' ', 1)
+            else:
+                source = None
+
+            if source:
+                nickname, ident, hostname = parse_usermask(source)
+            else:
+                nickname, ident, hostname = (None, None, None)
+
+            command, line = line.split(u' ', 1)
+
+            if u' :' in line:
+                argstr, text = line.split(u' :', 1)
+
+                # E' un "comando" del Bot
+                if text.startswith(u'!'):
+                    try:
+                        command, text = text[1:].split(u' ', 1)
+                    except ValueError:
+                        command, text = text[1:], u''
+
+                    # Espande il comando con gli alias
+                    if command in COMMAND_ALIASES:
+                        command = COMMAND_ALIASES[command]
+
+                    command = u"cmd_%s" % command
+            else:
+                argstr, text = line, u''
+            args = argstr.split()
+
+            # text = text.decode('utf-8')
+            user = IRCUser(ident, hostname, nickname)
+            event = IRCEvent(self, user, command, argstr, args, text)
+
+            event_name = u'on_%s' % command
+            for inst in [self] + self.head.plugins:
+                if hasattr(inst, event_name):
+                    f = getattr(inst, event_name)
+                    f(event)
+
+        # qui siamo a EOF!
+
+        if self.running:
+            self.logger.warning(u"EOF from server? Sleeping %i seconds before "
+                                "reconnecting" % EOF_RECONNECT_TIME)
+            gevent.sleep(EOF_RECONNECT_TIME)
+            self.logger.info(u"Reconnecting to %s:%d (%s)" % (self.config.address,
+                                                              self.config.port,
+                                                              self.name))
+            self.connect()
+
+    def send_cmd(self, cmd):
+        """
+        Invia una riga al server IRC apponendo il giusto newline.
+        """
+        if isinstance(cmd, unicode):
+            cmd = cmd.encode('utf-8')
+        self.stream.write(cmd + NEWLINE)
+        self.stream.flush()
+
+    def msg(self, target, message):
+        """
+        Our `PRIVMSG`.
+        """
+        now = time.time()
+        elapsed = now - self._last_write_time
+        if elapsed < self.throttle_out:
+            gevent.sleep(0.5 - elapsed)
+
+        self.logger.debug(u"PRVIMSG %s :%s" % (target, message))
+        self.send_cmd(u"PRIVMSG %s :%s" % (target, message))
+        self._last_write_time = now
+
+
+    def join(self, channel):
+        self.logger.info(u"Joining %s" % channel)
+        self.send_cmd(u"JOIN %s" % channel)
+
+    def quit(self, message="Bye"):
+        self.logger.info(u"QUIT requested")
+        self.running = False
+        self.send_cmd(u"QUIT :%s" % message)
+        # self.stream.close()
+        self.socket.close()
+
+    def notice(self, target, message):
+        self.logger.debug(u"NOTICE %s :%s" % (target, message))
+        self.send_cmd(u"NOTICE %s :%s" % (target, message))
+
+    def ctcp(self, target, message):
+        self.logger.debug(u"SENT CTCP TO %s :%s" % (target, message))
+        # XXX unicode?
+        self.notice(target, CTCPCHR + message + CTCPCHR)
+
+    def ctcp_ping(self, target, message):
+        self.logger.info(u"CTCP PING reply to %s" % target)
+        self.ctcp(target, u"PING " + message)
+
+    def nickserv_login(self):
+        """
+        Autentica il nickname con NickServ.
+        """
+        self.logger.info(u"Authenticating with NickServ")
+        self.msg(u'NickServ', u"IDENTIFY %s" % self.config.nickserv)
+        gevent.sleep(1)
+
+    # EVENTS
+
+    def on_001(self, event):
+        """
+        L'evento "welcome" del server IRC.
+        NOTA: Non e' un `welcome` ufficiale, ma funziona.
+        """
+        if self.config.nickserv:
+            self.nickserv_login()
+
+        for channel in self.config.channels:
+            self.join(channel)
+
+    def on_PING(self, event):
+        self.logger.debug("PING from server")
+        self.send_cmd(u"PONG %s" % event.argstr)
+
+    def on_PRIVMSG(self, event):
+        target = event.args[0]
+        if target == self.current_nickname:
+            private = True
+        else:
+            private = False
+
+        if event.text.startswith(self.current_nickname) or private:
+            event.reply(get_random_reply())
+            return
+
+        # CTCP
+        if (target == self.current_nickname and event.text.startswith(CTCPCHR)):
+            event.text = event.text.strip(CTCPCHR)
+
+            if event.text.startswith(u"PING"):
+                ping = event.text.split(u' ', 1)[1]
+                self.logger.info(u"CTCP PING from %s (%s)" % (event.user.nickname, ping))
+                self.ctcp_ping(event.nickname, ping)
+            else:
+                self.logger.info(u"CTCP ? from %s: %s" % (event.user.nickname,
+                                                          event.text))
+
+    def on_KICK(self, event):
+        channel = event.args[0]
+        self.logger.info(u"KICKed from %s by %s (%s)" % (channel, event.nickname, event.text))
+        gevent.sleep(1)
         self.join(channel)
-        self.reply_to(kicker, channel,
-                      "6 kattiv0!!1")
 
-    def privmsg(self, user, channel, msg):
-        user = user.split('!', 1)[0]
+    def on_ERROR(self, event):
+        # skip if it's our /quit command
+        if '(Quit:' in event.argstr: return
+        self.logger.warning("ERROR from server: %s" % event.argstr)
 
-        # qui potrei "impacchettare":
-        request = dict(user=user, channel=channel, msg=msg)
-
-        if msg.startswith('!'):
-            self.one_cmd(user, channel, msg)
-
-        elif msg.startswith(self.nickname):
-            # strippo self.nickname da inizio riga
-            msg = msg.replace(self.nickname, '', 1)
-            # ed eventuali [:;,] a eseguire (tipo: "pinolo: ehy")
-            msg = re.sub("^[:;,]\s*", '', msg)
-
-            if msg.startswith('!'):
-                self.reply_to(user, channel,
-                              "i comandi vanno dati direttamente in canale, "\
-                              "senza il mio nome davanti, perche' sono emo.")
+    def on_cmd_quit(self, event):
+        if event.user.nickname == u'sand':
+            if event.text == '':
+                reason = get_random_quit()
             else:
-                self.reply_to(user, channel,
-                              random.choice(Pinolo.dumbReplies))
+                reason = event.text
 
-    def reply_to(self, user, channel, reply):
-        # XXX cristo-u-ti-f8
-        reply = reply.encode('utf-8')
+            self.logger.warning(u"Global quit from %s (%s)" % (event.user.nickname, reason))
+            for client in self.head.connections.values():
+                client.quit(reason)
 
-        if channel == self.nickname:
-            # private message
-            self.msg(user, reply)
+    def on_cmd_prcd(self, event):
+        cat, moccolo = moccolo_random(event.text or None)
+        if not moccolo:
+            event.reply(u"La categoria non esiste!")
         else:
-            # public message
-            self.msg(channel, "%s: %s" % (user, reply))
+            event.reply(u"(%s) %s" % (cat, moccolo))
 
-    def parse_line(self, line):
-        """Parse a line looking for commands.
+    def on_cmd_prcd_list(self, event):
+        event.reply(u', '.join(prcd_categories))
 
-        Copiato molto da Cmd().
-        """
-
-        line = line.strip()
-        if not line:
-            return None, None, line
-
-        if not line.startswith('!'):
-            # not a command
-            return None, None, line
+    def on_cmd_PRCD(self, event):
+        cat, moccolo = moccolo_random(event.text or None)
+        if not moccolo:
+            event.reply(u"La categoria non esiste!")
         else:
-            line = line[1:]
-
-        i, n = 0, len(line)
-        while i < n and line[i] in VALID_CMD_CHARS:
-            i = i+1
-
-        cmd, arg = line[:i], line[i:].strip()
-
-        # Diciamo che e' meglio arg None che valorizzato a ""
-        if arg == '':
-            arg = None
-
-        return cmd, arg, line
-
-    def one_cmd(self, user, channel, line):
-        cmd, arg, line = self.parse_line(line)
-
-        # cmd alias
-        fn_map = {
-            'q': 'quote',
-            's': 'search',
-            'x': 'new_search',
-        }
-
-        # empty line
-        if not line:
-            return None
-
-        if cmd is None or cmd == '':
-            return None
-
-        # supporto rozzo per gli alias
-        if fn_map.has_key(cmd):
-            cmd = fn_map[cmd]
-
-        try:
-            func = getattr(self, 'do_' + cmd)
-        except AttributeError:
-            self.reply_to(user, channel, "command not found.")
-            return None
-
-        return func(user, channel, arg)
-
-    def do_dimmi(self, user, channel, arg):
-        self.reply_to(user, channel,
-                      "Io sono %s" % self.transport.connector.name)
-
-    def do_quote(self, user, channel, arg):
-        if arg is not None and not re.match('\d+$', arg):
-            reply = "aridaje... la sintassi e': !q <id numerico>"
-        else:
-            q = self.factory.dbh.get_quote(arg)
-            if q is None and arg is not None:
-                self.reply_to(user, channel,
-                              "quote %i non trovata" % int(arg))
-            elif q is None:
-                self.reply_to(user, channel,
-                              "ho tipo il db vuoto!?")
-            else:
-                self.reply_to(user, channel,
-                              "%i - %s" % (q.id, q.quote))
-
-    def do_addq(self, user, channel, arg):
-        if arg is None:
-            self.reply_to(user, channel,
-                          "ao' ma de che?")
-            return
-
-        if type(user) is str:
-            u_user = unicode(user, 'utf-8')
-        if type(arg) is str:
-            u_arg = unicode(arg, 'utf-8')
-
-        q_id = self.factory.dbh.add_quote(u_user, u_arg)
-        self.reply_to(user, channel,
-                      "aggiunto il quote %i!" % q_id)
-
-    def do_search(self, user, channel, arg):
-        if arg is None or arg == '':
-            self.reply_to(user, channel,
-                          "Che cosa vorresti cercare?")
-            return
-
-        # Per SQL LIKE = '%pattern%'
-        arg = '%' + arg + '%'
-        arg = unicode(arg, 'utf-8')
-
-        tot, query = self.factory.dbh.search_quote(arg)
-        if tot == 0:
-            self.reply_to(user, channel,
-                          "Non abbiamo trovato un cazzo! (cit.)")
-            return
-
-        msg = u''
-        if tot > 5:
-            msg = u"Search found %i results (5 displayed):" % tot
-        elif tot == 1:
-            msg = u"Search found 1 result:"
-        else:
-            msg = u"Search found %i results:" % tot
-
-        self.reply_to(user, channel, msg)
-
-        for ss in query:
-            self.reply_to(user, channel,
-                          u"%i - %s" % (ss.id, ss.quote))
-
-    def do_new_search(self, user, channel, arg):
-        if arg is None or arg == "":
-            self.reply_to(user, channel,
-                          "Cosa vorresti cercare OGGI? (TM)")
-            return
-
-        matches = self.factory.searcher.search(arg)
-        num_results = matches.get_matches_estimated()
-
-        if num_results == 0:
-            self.reply_to(user, channel,
-                          "Non abbiamo trovato un cazzo! (cit.)")
-            return
-
-        self.reply_to(user, channel, "%i results found." % matches.get_matches_estimated())
-
-        for m in matches:
-            quote_text = unicode(m.document.get_data(), 'utf-8')
-            #quote_author = unicode(m.document.get_value(xapian_author), 'utf-8')
-            #quote_creation_date = m.document.get_value(xapian_date)
-            #quote_creation_date = datetime.strptime(quote_creation_date, '%Y%m%d%H%M%S')
-            #quote_date = quote_creation_date.strftime('%A, %B %d, %Y %I:%M%p')
-
-            self.reply_to(user, channel,
-                          "%i: %i%% - %s" % (m.rank +1,
-                                             m.percent,
-                                             quote_text))
-
-    def do_prcd(self, user, channel, arg):
-        if arg is not None:
-            if arg not in self.factory.prcd.categorie():
-                self.reply_to(user, channel,
-                              u"categoria non trovata, PER GIOVE!")
-                return
-
-        cat, moccolo = self.factory.prcd.a_caso(arg)
-        self.reply_to(user, channel,
-                      u"%s [%s]" % (moccolo, cat))
-
-    def do_joinall(self, user, channel, arg):
-        if user == 'sand':
-            for chan in self._get_config()['channels']:
-                self.join(chan)
-
-    def do_quit(self, user, channel, arg):
-        if user == 'sand':
-            if arg == 'all':
-                for client in self.factory.clients:
-                    client.clean_quit()
-            else:
-                self.clean_quit()
-
-    def do_PRCD(self, user, channel, arg):
-        shapes = [
-            'apt', 'bong', 'bud-frogs', 'bunny',
-            'cock', 'cower', 'default', 'duck',
-            'flaming-sheep', 'head-in', 'hellokitty',
-            'koala', 'moose', 'mutilated', 'satanic',
-            'sheep', 'small', 'sodomized', 'sodomized-sheep',
-            'suse', 'three-eyes', 'tux', 'udder',
-            'vader'
-        ]
-
-        cmd = '/usr/games/cowsay'
-
-        if arg is not None:
-            if arg not in self.factory.prcd.categorie():
-                self.reply_to(user, channel,
-                              "categoria non trovata, PER GIOVE!")
-                return
-
-        cat, moccolo = self.factory.prcd.a_caso(arg)
-        cmdline = [cmd, '-f', random.choice(shapes)]
-        pope = subprocess.Popen(cmdline,
-                                shell=False,
-                                stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE,
-                                close_fds=True)
-        (oro, ano) = (pope.stdin, pope.stdout)
-        oro.write(moccolo)
-        oro.close()
-        goo = ano.read()
-
-        for line in goo.split("\n"):
-            if line == '':
-                continue
-            self.reply_to(user, channel, line)
-
-    # XXX TEST!
-    def id_conn(self):
-        """Ritorna una tuple(remote.addr, remote.port, local.addr, local.port)"""
-
-        peer = self.transport.getPeer()
-        host = self.transport.getHost()
-        return (peer.host, peer.port, host.host, host.port)
+            text = cowsay(moccolo)
+            for line in text:
+                if line:
+                    event.reply(line, prefix=False)
 
 
-class PinoloFactory(protocol.ReconnectingClientFactory):
-    #protocol = Pinolo
+class BigHead(object):
+    """
+    Questo oggetto e' il cervellone che gestisce i plugin e tutte le connessioni.
+    """
 
     def __init__(self, config):
-        self.config = config
-        self.clients = []
-        #self.dbh = db.DbHelper("quotes.db")
-        self.dbh = db.SqlFairy('quotes.db')
-        self.prcd = Prcd()
-        self.searcher = Searcher()
+        self.config = config		# la config globale
+        self.connections = {}
+        self.plugins = []
+        self.logger = logging.getLogger('pinolo.head')
 
-    def config_from_name(self, name):
-        for a, p in self.config.keys():
-            cfg = self.config[(a, p)]
-            if cfg['name'] == name:
-                return cfg
-        return None
+        for root, dirs, files in os.walk("plugins"):
+            for filename in files:
+                if (filename.startswith('_') or not filename.endswith('.py')): continue
+                name = filename.split('.')[0]
+                self.logger.info(u"Plugin import: %s" % name)
+                plugin = imp.load_source(name, os.path.join(root, filename))
 
-    def buildProtocol(self, addr):
-        log.msg("Connected to %s %s" % (addr.host, addr.port))
-        #config = self.get_config(addr.host, addr.port)
-        c = Pinolo()
-        c.factory = self
+        for plugin_name, plugin_cls in pinolo.plugins.registry:
+            self.plugins.append(plugin_cls(self))
+            COMMAND_ALIASES.update(plugin_cls.COMMAND_ALIASES.items())
 
-        self.clients.append(c)
+        # init db
+        db_uri = database_filename(self.config.datadir)
+        init_db(db_uri)
 
-        # per ReconnectingClientFactory
-        # http://twistedmatrix.com/documents/current/core/howto/clients.html
-        self.resetDelay()
+        # activate plugins
+        for plugin in self.plugins:
+            plugin.activate()
 
-        #c.name = config['name']
-        return c
+    def run(self):
+        print u"[*] Starting %s" % FULL_VERSION
+        jobs = []
 
-    def clientConnectionLost(self, connector, reason):
-        log.msg("Lost connection: %s" % reason)
-        protocol.ReconnectingClientFactory.clientConnectionLost(self, connector,
-                                                                reason)
+        for name, server in self.config.servers.iteritems():
+            irc = IRCClient(name, server, self.config, self)
+            self.connections[name] = irc
+            jobs.append(gevent.spawn(irc.connect))
 
-        if len(self.clients) == 0:
-            reactor.stop()
-
-    # Una connessione fallita va sempre segnalata e ritentata.
-    def clientConnectionFailed(self, connector, reason):
-        log.msg("Could not connect: %s" % reason)
-        protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
-
-    def stopFactory(self):
-        log.msg("bye bye!")
+        try:
+            gevent.joinall(jobs)
+        except KeyboardInterrupt:
+            for connection in self.connections.values():
+                connection.quit(u"keyboard-interrupt")
+            gevent.joinall(jobs)

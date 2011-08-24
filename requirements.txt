@@ -1,4 +1,0 @@
-SQLAlchemy==0.6.1
-#Twisted==10.2.0
-Yapsy==1.8
-PyPubSub==2.0

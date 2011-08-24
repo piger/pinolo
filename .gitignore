@@ -8,3 +8,5 @@ megahal.trn
 megahal.txt
 prcd/*.txt
 xapian/
+db.sqlite
+pinolo.egg-info
