@@ -6,7 +6,7 @@ monkey.patch_all()
 
 import re
 import htmlentitydefs
-import simplejson
+import json
 import urllib, urllib2
 
 MAX_RESULTS = 5
@@ -55,7 +55,7 @@ def search_google(query_string):
     request = urllib.urlopen(url)
     encoding = request.headers['content-type'].split('charset=')[-1]
     data = unicode(request.read(), encoding)
-    json_data = simplejson.loads(data)
+    json_data = json.loads(data)
 
     if 'responseData' in json_data:
         if 'results' in json_data['responseData']:

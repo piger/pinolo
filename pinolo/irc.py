@@ -376,7 +376,7 @@ class IRCClient(object):
             event.reply(u"Non so niente, non ho visto niente.")
         else:
             for title, url, content in results:
-                event.reply(u"%s - %s - %s" % (title, url, content))
+                event.reply(u"\"%s\" %s - %s" % (title, url, content))
 
 
 class BigHead(object):
