@@ -22,7 +22,7 @@ pinolo is an IRC bot written for fun.
  - Install the needed python libraries (including the development
    libraries); with Debian/Ubuntu this is usually:
 
-	apt-get intall python-gevent python-sqlalchemy
+	apt-get intall python-gevent python-sqlalchemy python-xapian
 
    Or with pip:
 
