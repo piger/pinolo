@@ -1,30 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
+import codecs
 import random
+import pkg_resources
 
-from pkg_resources import resource_string
+def read_replies_file(filename):
+    path = pkg_resources.resource_filename(__name__, "data/" + filename)
+    fd = codecs.open(path, encoding='utf-8')
+    replies = []
+    for line in fd:
+        line = line.strip()
+        if line and not line.startswith('#'):
+            replies.append(line)
+    fd.close()
+    return replies
 
+random_quits = read_replies_file("quit.txt")
+random_replies = read_replies_file("replies.txt")
 
-QUIT_FILE = os.path.join('data', 'quit.txt')
-REPLY_FILE = os.path.join('data', 'replies.txt')
+def get_random_quit():
+    return random.choice(random_quits)
 
-
-def _read_flat_file(filename):
-    return [x for x in resource_string(__name__, filename).split('\n')
-             if x != '']
-
-_random_quits = _read_flat_file(QUIT_FILE)
-_random_replies = _read_flat_file(REPLY_FILE)
-
-def random_quit():
-    return random.choice(_random_quits)
-
-def random_reply(subject=None):
-    reply = random.choice(_random_replies)
-
-    if subject:
-        return subject + ': ' + reply
-    else:
-        return reply
+def get_random_reply():
+    return random.choice(random_replies)

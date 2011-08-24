@@ -23,6 +23,7 @@ from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
 from pinolo.utils import decode_text
 from pinolo.config import database_filename
+from pinolo.casuale import get_random_quit, get_random_reply
 
 usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
 
@@ -108,6 +109,7 @@ class IRCClient(object):
         self.head = head
 
         self.nickname = self.config.nickname
+        self.current_nickname = self.nickname
 
         self.socket = None
         self.stream = None
@@ -302,9 +304,17 @@ class IRCClient(object):
 
     def on_PRIVMSG(self, event):
         target = event.args[0]
+        if target == self.current_nickname:
+            private = True
+        else:
+            private = False
+
+        if event.text.startswith(self.current_nickname) or private:
+            event.reply(get_random_reply())
+            return
 
         # CTCP
-        if (target == self.nickname and event.text.startswith(CTCPCHR)):
+        if (target == self.current_nickname and event.text.startswith(CTCPCHR)):
             event.text = event.text.strip(CTCPCHR)
 
             if event.text.startswith(u"PING"):
@@ -329,7 +339,7 @@ class IRCClient(object):
     def on_cmd_quit(self, event):
         if event.user.nickname == u'sand':
             if event.text == '':
-                reason = u"Attuo il decesso gallico."
+                reason = get_random_quit()
             else:
                 reason = event.text
 
