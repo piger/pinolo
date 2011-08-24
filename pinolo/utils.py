@@ -1,13 +1,8 @@
 def decode_text(text):
-    result = None
-
-    for encoding in ('utf-8', 'iso-8859-15', 'iso-8859-1'):
+    for enc in ('utf-8', 'iso-8859-15', 'iso-8859-1', 'ascii'):
         try:
-            result = text.decode(encoding)
+            return text.decode(enc)
         except UnicodeDecodeError:
             continue
-        else:
-            break
-    if result is None:
-        result = text.decode('utf-8', 'replace')
-    return result
+    # fallback
+    return text.decode('utf-8', 'replace')
