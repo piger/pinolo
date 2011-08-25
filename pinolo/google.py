@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 
-import gevent
-from gevent import monkey
-monkey.patch_all()
+# import gevent
+# from gevent import monkey
+# monkey.patch_all()
 
 import re
 import htmlentitydefs
 import json
 import urllib, urllib2
+
+import httplib
+import socket
+from gevent import socket as cosocket
 
 MAX_RESULTS = 5
 SEARCH_LANG = 'it'
@@ -44,6 +48,33 @@ def strip_html(text):
         return text # leave as is
     return re.sub("(?s)<[^>]*>|&#?\w+;", fixup, text)
 
+class gevent_HTTPConnection(httplib.HTTPConnection):
+    """
+    Per evitare monkey.patch_all():
+    http://groups.google.com/group/gevent/browse_thread/thread/c20181cb066ee97e?fwc=2&pli=1
+    """
+    def connect(self):
+        if self.timeout is socket._GLOBAL_DEFAULT_TIMEOUT:
+            timeout = cosocket._GLOBAL_DEFAULT_TIMEOUT
+        else:
+            timeout = self.timeout
+        self.sock = cosocket.create_connection((self.host, self.port), timeout)
+
+class gevent_HTTPHandler(urllib2.HTTPHandler):
+    def http_open(self, request):
+        return self.do_open(gevent_HTTPConnection, request)
+
+def gevent_url_fetch(url):
+    opener = urllib2.build_opener(gevent_HTTPHandler)
+    resp = opener.open(url)
+    return resp.headers, resp
+
+def parse_result(result):
+    title = strip_html(result['titleNoFormatting'])
+    url = result['url']
+    content = strip_html(result['content'])
+    return (title, url, content)
+
 def search_google(query_string):
     query = urllib.urlencode({
         'q': query_string,
@@ -52,24 +83,16 @@ def search_google(query_string):
     })
 
     url = SEARCH_URL + "&" + query
-    request = urllib.urlopen(url)
-    encoding = request.headers['content-type'].split('charset=')[-1]
-    data = unicode(request.read(), encoding)
+    headers, response = gevent_url_fetch(url)
+    encoding = headers['content-type'].split('charset=')[-1]
+    data = unicode(response.read(), encoding)
     json_data = json.loads(data)
 
     if 'responseData' in json_data:
         if 'results' in json_data['responseData']:
-            return parse_results(json_data['responseData']['results'])
+            return [parse_result(x)
+                    for x in json_data['responseData']['results']]
     return [] # error
-
-def parse_results(results):
-    ret = []
-    for result in results:
-        title = strip_html(result['titleNoFormatting'])
-        url = result['url']
-        content = strip_html(result['content'])
-        ret.append((title, url, content))
-    return ret
 
 if __name__ == '__main__':
     import sys
