@@ -364,8 +364,8 @@ class IRCClient(object):
         if not moccolo:
             event.reply(u"La categoria non esiste!")
         else:
-            text = cowsay(moccolo)
-            for line in text:
+            output = cowsay(moccolo)
+            for line in output:
                 if line:
                     event.reply(line, prefix=False)
 

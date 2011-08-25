@@ -39,7 +39,7 @@ def cowsay(message):
     """
     Ritorna una lista contenente l'output di cowsay.
     """
-    if not shapes: return None
+    if not shapes: return [] # error
     shape = random.choice(shapes)
     cmdline = shlex.split('cowsay %s -f %s' % (random_flag(), shape))
     p = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
