@@ -407,13 +407,6 @@ class BigHead(object):
                 self.logger.info(u"Importing plugin: %s" % (libname,))
                 p = my_import(libname)
 
-        # for root, dirs, files in os.walk("plugins"):
-        #     for filename in files:
-        #         if (filename.startswith('_') or not filename.endswith('.py')): continue
-        #         name = filename.split('.')[0]
-        #         self.logger.info(u"Plugin import: %s" % name)
-        #         plugin = imp.load_source(name, os.path.join(root, filename))
-
         for plugin_name, PluginClass in pinolo.plugins.registry:
             # init and append to internal list
             self.plugins.append(PluginClass(self))
