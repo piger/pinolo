@@ -132,6 +132,11 @@ class IRCClient(object):
             else:
                 break
 
+        gevent.sleep(1)
+        self.running = True
+        self.login_to_server()
+        self.event_loop()
+
     def _connect(self):
         """
         Si connette al server IRC, fa partire i loop read/write e si autentica
@@ -144,11 +149,6 @@ class IRCClient(object):
         self.socket.connect((self.config.address, self.config.port))
         print u"[*] Connected to: %s:%d (%s)" % (self.config.address, self.config.port,
                                                 self.name)
-
-        gevent.sleep(1)
-        self.running = True
-        self.login_to_server()
-        self.event_loop()
 
     def login_to_server(self):
         """
@@ -367,15 +367,6 @@ class IRCClient(object):
             for line in output:
                 if line:
                     event.reply(line, prefix=False)
-
-    # def on_cmd_google(self, event):
-    #     if not event.text: return
-    #     results = search_google(event.text)
-    #     if not results:
-    #         event.reply(u"Non so niente, non ho visto niente.")
-    #     else:
-    #         for title, url, content in results:
-    #             event.reply(u"\"%s\" %s - %s" % (title, url, content))
 
 
 class BigHead(object):
