@@ -13,6 +13,8 @@ import httplib
 import socket
 from gevent import socket as cosocket
 
+from pinolo.plugins import Plugin
+
 MAX_RESULTS = 5
 SEARCH_LANG = 'it'
 SEARCH_URL = "http://ajax.googleapis.com/ajax/services/search/web?v=1.0"
@@ -93,6 +95,21 @@ def search_google(query_string):
             return [parse_result(x)
                     for x in json_data['responseData']['results']]
     return [] # error
+
+class GooglePlugin(Plugin):
+
+    COMMAND_ALIASES = {
+        'g': 'google',
+    }
+
+    def on_cmd_google(self, event):
+        if not event.text: return
+        results = search_google(event.text)
+        if not results:
+            event.reply(u"Non so niente, non ho visto niente.")
+        else:
+            for title, url, content in results:
+                event.reply(u"\"%s\" %s - %s" % (title, url, content))
 
 if __name__ == '__main__':
     import sys
