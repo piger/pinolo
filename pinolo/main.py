@@ -5,7 +5,6 @@ import warnings
 warnings.simplefilter('default')
 
 import logging
-
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger('pinolo')
@@ -13,9 +12,12 @@ logger = logging.getLogger('pinolo')
 import optparse
 from pinolo.config import read_config_files
 from pinolo.irc import BigHead
+from pinolo import FULL_VERSION
 
 def main():
-    parser = optparse.OptionParser()
+    parser = optparse.OptionParser(description="%s: "
+                                   "the naughthy chat bot." % FULL_VERSION,
+                                   version=FULL_VERSION)
     parser.add_option('--config',
                       help="Path to the configuration file")
     parser.add_option('--debug', action="store_true",

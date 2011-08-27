@@ -1,6 +1,6 @@
-VERSION = (0, 1, 1)
+VERSION = (0, 9, 1)
 STR_VERSION = '.'.join([str(x) for x in VERSION])
-FULL_VERSION = "pinolo-" + STR_VERSION
+FULL_VERSION = "Pinolo-" + STR_VERSION
 
 DEFAULT_DATABASE_FILENAME = 'db.sqlite'
 
