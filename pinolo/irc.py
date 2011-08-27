@@ -18,6 +18,7 @@ from gevent import socket, ssl
 
 import pinolo.plugins
 from pinolo import FULL_VERSION, EOF_RECONNECT_TIME, FAILED_CONNECTION_RECONNECT_TIME
+from pinolo import CONNECTION_TIMEOUT
 from pinolo.database import init_db
 from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
@@ -174,7 +175,18 @@ class IRCClient(object):
         hostmask for a user's message, and a server name otherwise. If
         you are writing a client, do not send the :source part.
         """
-        for line in self.stream:
+        while True:
+            line = None
+            with gevent.Timeout(CONNECTION_TIMEOUT, False):
+                line = self.stream.readline()
+            if line is None:
+                print "timeout"
+                self.logger.warning("Connection timeout: "
+                                    "%d elapsed" % CONNECTION_TIMEOUT)
+                break
+
+            # EOF
+            if line == '': break
             line = line.strip()
             line = decode_text(line)
 
