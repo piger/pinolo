@@ -26,7 +26,6 @@ from pinolo.cowsay import cowsay
 from pinolo.utils import decode_text
 from pinolo.config import database_filename
 from pinolo.casuale import get_random_quit, get_random_reply
-# from pinolo.google import search_google
 
 usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
 
