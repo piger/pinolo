@@ -19,7 +19,7 @@ from gevent.core import timer
 
 import pinolo.plugins
 from pinolo import FULL_VERSION, EOF_RECONNECT_TIME, FAILED_CONNECTION_RECONNECT_TIME
-from pinolo import CONNECTION_TIMEOUT
+from pinolo import CONNECTION_TIMEOUT, PING_DELAY
 from pinolo.database import init_db
 from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
@@ -37,6 +37,8 @@ COMMAND_ALIASES = {
     's': 'search',
     'g': 'google',
 }
+
+class LastEvent(Exception): pass
 
 def parse_usermask(usermask):
     """Ritorna una tupla con (nickname, ident, hostname)
@@ -194,14 +196,13 @@ class IRCClient(object):
                 break
 
             if line == '': break # EOF
-            line = line.strip()
-            line = decode_text(line)
-
+            line = decode_text(line.strip())
             self.logger.debug(u"IN: %r" % line)
 
             if line.startswith(u':'):
                 source, line = line[1:].split(u' ', 1)
             else:
+                self.logger.debug("strana riga dal server IRC: %r" % line)
                 source = None
 
             if source:
@@ -210,7 +211,6 @@ class IRCClient(object):
                 nickname, ident, hostname = (None, None, None)
 
             command, line = line.split(u' ', 1)
-
             if u' :' in line:
                 argstr, text = line.split(u' :', 1)
 
@@ -230,14 +230,11 @@ class IRCClient(object):
             event = IRCEvent(self, user, command, argstr, args, text)
 
             event_name = u'on_%s' % command
-            for inst in [self] + self.head.plugins:
-                if hasattr(inst, event_name):
-                    f = getattr(inst, event_name)
-                    f(event)
+            self.dispatch_event(event_name, event)
 
         # qui siamo a EOF!
-
         if self.running:
+            self.running = False
             self.logger.warning(u"EOF from server? Sleeping %i seconds before "
                                 "reconnecting" % EOF_RECONNECT_TIME)
             gevent.sleep(EOF_RECONNECT_TIME)
@@ -245,6 +242,15 @@ class IRCClient(object):
                                                               self.config.port,
                                                               self.name))
             self.connect()
+
+    def dispatch_event(self, event_name, event):
+        for inst in [self] + self.head.plugins:
+            if hasattr(inst, event_name):
+                f = getattr(inst, event_name)
+                try:
+                    f(event)
+                except LastEvent:
+                    break
 
     def send_cmd(self, cmd):
         """
@@ -330,7 +336,7 @@ class IRCClient(object):
         """
         Setta il timer per pingare noi stessi.
         """
-        self.ping_timer = timer(float(60), self.pingati)
+        self.ping_timer = timer(PING_DELAY, self.pingati)
 
     def pingati(self):
         """
@@ -340,7 +346,8 @@ class IRCClient(object):
         self.ctcp_ping(self.current_nickname)
         self.ciclo_pingo()
 
-    # EVENTS
+
+    # EVENTS ################################################################################
 
     def on_001(self, event):
         """
@@ -378,6 +385,8 @@ class IRCClient(object):
                 ping = event.text.split(u' ', 1)[1]
                 self.logger.info(u"CTCP PING from %s (%s)" % (event.user.nickname, ping))
                 self.ping_reply(event.user.nickname, ping)
+            elif event.text.startswith(u"VERSION"):
+                self.ctcp_reply(event.user.nickname, "VERSION %s" % FULL_VERSION)
             else:
                 self.logger.info(u"CTCP ? from %s: %s" % (event.user.nickname,
                                                           event.text))
@@ -416,11 +425,7 @@ class IRCClient(object):
 
     def on_cmd_quit(self, event):
         if event.user.nickname == u'sand':
-            if event.text == '':
-                reason = get_random_quit()
-            else:
-                reason = event.text
-
+            reason = get_random_quit() if event.text == '' else event.text
             self.logger.warning(u"Global quit from %s (%s)" % (event.user.nickname, reason))
             for client in self.head.connections.values():
                 client.quit(reason)
