@@ -26,7 +26,7 @@ from pinolo.cowsay import cowsay
 from pinolo.utils import decode_text
 from pinolo.config import database_filename
 from pinolo.casuale import get_random_quit, get_random_reply
-from pinolo.google import search_google
+# from pinolo.google import search_google
 
 usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
 
@@ -35,7 +35,6 @@ CTCPCHR = u'\x01'
 
 COMMAND_ALIASES = {
     's': 'search',
-    'g': 'google',
 }
 
 class LastEvent(Exception): pass
@@ -445,23 +444,13 @@ class IRCClient(object):
         if not moccolo:
             event.reply(u"La categoria non esiste!")
         else:
-            text = cowsay(moccolo)
-            for line in text:
+            output = cowsay(moccolo)
+            for line in output:
                 if line:
                     event.reply(line, prefix=False)
 
-    def on_cmd_google(self, event):
-        if not event.text: return
-        results = search_google(event.text)
-        if not results:
-            event.reply(u"Non so niente, non ho visto niente.")
-        else:
-            for title, url, content in results:
-                event.reply(u"\"%s\" %s - %s" % (title, url, content))
-
     def on_cmd_pingami(self, event):
         self.ctcp_ping(event.user.nickname)
-
 
 class BigHead(object):
     """
@@ -473,17 +462,30 @@ class BigHead(object):
         self.connections = {}
         self.plugins = []
         self.logger = logging.getLogger('pinolo.head')
+        plugins_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                                   'plugins')
 
-        for root, dirs, files in os.walk("plugins"):
-            for filename in files:
-                if (filename.startswith('_') or not filename.endswith('.py')): continue
-                name = filename.split('.')[0]
-                self.logger.info(u"Plugin import: %s" % name)
-                plugin = imp.load_source(name, os.path.join(root, filename))
+        def my_import(name):
+            """
+            http://effbot.org/zone/import-string.htm#importing-by-filename
+            """
+            m = __import__(name)
+            for n in name.split(".")[1:]:
+                m = getattr(m, n)
+            return m
 
-        for plugin_name, plugin_cls in pinolo.plugins.registry:
-            self.plugins.append(plugin_cls(self))
-            COMMAND_ALIASES.update(plugin_cls.COMMAND_ALIASES.items())
+        for root, dirs, files in os.walk(plugins_dir):
+            files = [os.path.splitext(x)[0] for x in files if not x.startswith('_')]
+            for libname in set(files): # uniqify
+                libname = "pinolo.plugins." + libname
+                self.logger.info(u"Importing plugin: %s" % (libname,))
+                p = my_import(libname)
+
+        for plugin_name, PluginClass in pinolo.plugins.registry:
+            # init and append to internal list
+            self.plugins.append(PluginClass(self))
+            # and update aliases
+            COMMAND_ALIASES.update(PluginClass.COMMAND_ALIASES.items())
 
         # init db
         db_uri = database_filename(self.config.datadir)

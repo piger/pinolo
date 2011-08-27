@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import sys
-sys.path.insert(0, '/Users/sand/dev/pinolo')
-
 import os
 import re
 import unicodedata
@@ -15,7 +13,7 @@ from pubsub import Publisher as pubsub
 
 from pinolo.main import CommandPlugin, PluginActivationError
 
-
+# costanti per Xapian
 xapian_author = 0
 xapian_date = 1
 xapian_quote_id = 2

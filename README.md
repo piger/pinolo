@@ -17,7 +17,7 @@ pinolo is an IRC bot written for fun.
 
  - Check out the pinolo source code using git:
 
-	git clone git@code.dyne.org:pinolo.git
+	git clone git://git.dyne.org/pinolo.git
 
  - Install the needed python libraries (including the development
    libraries); with Debian/Ubuntu this is usually:

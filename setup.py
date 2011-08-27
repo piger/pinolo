@@ -4,11 +4,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="pinolo",
-    version="0.1",
+    version="0.9",
     description="Pinolo, the naughty chat bot",
     author="sand",
     author_email="daniel@spatof.org",
-    url="http://code.dyne.org",
+    url="http://code.dyne.org/?r=pinolo",
     # xapian!
     install_requires=["gevent>=0.12.2", "SQLAlchemy>=0.6.3"],
     setup_requires=[],
