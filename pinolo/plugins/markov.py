@@ -5,14 +5,22 @@ import random
 from collections import defaultdict
 import cPickle as pickle
 
+from pinolo.plugins import Plugin
+
 NEWLINE = '\r\n'
 
-class Markov(object):
-    def __init__(self, brainfile, n=2):
-        self.brainfile = brainfile
-        self.n = n
+class Markov(Plugin):
+    def __init__(self, head):
+        super(Markov, self).__init__(head)
+        self.brainfile = os.path.join(self.head.config.datadir, 'markovdb.pickle')
+        self.n = 2
         self.beginnings = set()
         self.brain = defaultdict(list)
+        self.savelimit = 0
+
+    def activate(self):
+        if os.path.exists(self.brainfile):
+            self.load()
 
     def train_from_file(self, filename):
         data = None
@@ -71,6 +79,21 @@ class Markov(object):
         with open(self.brainfile, 'rb') as fd:
             self.beginnings, self.brain = pickle.load(fd)
 
+    def on_PRIVMSG(self, event):
+        if event.user.nickname == event.client.current_nickname: return
+        if event.text.startswith(event.client.current_nickname):
+            # g = self.generate()
+            return
+        else:
+            self.savelimit +=1
+            if self.savelimit > 50:
+                self.save()
+                self.savelimit = 0
+            self.learn_phrase(event.text)
+
+    def on_cmd_savemarkov(self, event):
+        if event.user.nickname == u'sand':
+            self.save()
 
 if __name__ == '__main__':
     import sys

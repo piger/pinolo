@@ -28,7 +28,7 @@ class Fact(Base):
 
 class FactsPlugin(Plugin):
     def on_PRIVMSG(self, event):
-        if event.user.nickname == event.client.nickname: return
+        if event.user.nickname == event.client.current_nickname: return
         match = re.search(r"(?:cosa|chi)\s+e'\s+(.*)\?$", event.text)
         if match:
             self.domanda(event, match.group(1).strip())
@@ -63,6 +63,6 @@ class FactsPlugin(Plugin):
                 fact.previous_meaning = meaning
                 session.commit()
 
-    def on_cmd_undo(self, event):
+    def on_cmd_fundo(self, event):
         if event.text:
             self.undo(event.text)
