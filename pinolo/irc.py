@@ -200,7 +200,7 @@ class IRCClient(object):
             if line.startswith(u':'):
                 source, line = line[1:].split(u' ', 1)
             else:
-                self.logger.debug("strana riga dal server IRC: %r" % line)
+                self.logger.warning("strana riga dal server IRC: %r" % line)
                 source = None
 
             if source:
