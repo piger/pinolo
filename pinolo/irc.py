@@ -15,25 +15,28 @@ import imp
 import gevent
 from gevent.core import timer
 from gevent import socket, ssl
+from gevent.core import timer
 
 import pinolo.plugins
 from pinolo import FULL_VERSION, EOF_RECONNECT_TIME, FAILED_CONNECTION_RECONNECT_TIME
+from pinolo import CONNECTION_TIMEOUT, PING_DELAY
 from pinolo.database import init_db
 from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
 from pinolo.utils import decode_text
 from pinolo.config import database_filename
 from pinolo.casuale import get_random_quit, get_random_reply
-# from pinolo.google import search_google
 
 usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
 
 NEWLINE = '\r\n'
-CTCPCHR = '\x01'
+CTCPCHR = u'\x01'
 
 COMMAND_ALIASES = {
     's': 'search',
 }
+
+class LastEvent(Exception): pass
 
 def parse_usermask(usermask):
     """Ritorna una tupla con (nickname, ident, hostname)
@@ -119,6 +122,9 @@ class IRCClient(object):
         self.logger = logging.getLogger('pinolo.irc.' + self.name)
         self.running = False
 
+        self.ping_timer = None
+        self.greenlet = None
+
     def connect(self):
         while True:
             try:
@@ -135,6 +141,7 @@ class IRCClient(object):
         gevent.sleep(1)
         self.running = True
         self.login_to_server()
+        self.ciclo_pingo()
         self.event_loop()
 
     def _connect(self):
@@ -157,9 +164,13 @@ class IRCClient(object):
         """
         if self.config.password:
             self.send_cmd(u"PASS %s" % self.config.password)
-        self.send_cmd(u"NICK %s" % self.nickname)
+        self.set_nickname(self.current_nickname)
         self.send_cmd(u"USER %s 8 * :%s\n" % (self.general_config.ident,
                                               self.general_config.realname))
+
+    def set_nickname(self, nickname):
+        self.current_nickname = nickname
+        self.send_cmd(u"NICK %s" % nickname)
 
     def event_loop(self):
         """
@@ -173,15 +184,24 @@ class IRCClient(object):
         hostmask for a user's message, and a server name otherwise. If
         you are writing a client, do not send the :source part.
         """
-        for line in self.stream:
-            line = line.strip()
-            line = decode_text(line)
+        while True:
+            line = None
+            with gevent.Timeout(CONNECTION_TIMEOUT, False):
+                line = self.stream.readline()
+            if line is None:
+                print "timeout"
+                self.logger.warning("Connection timeout: "
+                                    "%d elapsed" % CONNECTION_TIMEOUT)
+                break
 
-            self.logger.debug(u"IN: %s" % line)
+            if line == '': break # EOF
+            line = decode_text(line.strip())
+            self.logger.debug(u"IN: %r" % line)
 
             if line.startswith(u':'):
                 source, line = line[1:].split(u' ', 1)
             else:
+                self.logger.warning("strana riga dal server IRC: %r" % line)
                 source = None
 
             if source:
@@ -190,7 +210,6 @@ class IRCClient(object):
                 nickname, ident, hostname = (None, None, None)
 
             command, line = line.split(u' ', 1)
-
             if u' :' in line:
                 argstr, text = line.split(u' :', 1)
 
@@ -202,27 +221,19 @@ class IRCClient(object):
                         command, text = text[1:], u''
 
                     # Espande il comando con gli alias
-                    if command in COMMAND_ALIASES:
-                        command = COMMAND_ALIASES[command]
-
-                    command = u"cmd_%s" % command
+                    command = u"cmd_" + COMMAND_ALIASES.get(command, command)
             else:
                 argstr, text = line, u''
             args = argstr.split()
-
-            # text = text.decode('utf-8')
             user = IRCUser(ident, hostname, nickname)
             event = IRCEvent(self, user, command, argstr, args, text)
 
             event_name = u'on_%s' % command
-            for inst in [self] + self.head.plugins:
-                if hasattr(inst, event_name):
-                    f = getattr(inst, event_name)
-                    f(event)
+            self.dispatch_event(event_name, event)
 
         # qui siamo a EOF!
-
         if self.running:
+            self.running = False
             self.logger.warning(u"EOF from server? Sleeping %i seconds before "
                                 "reconnecting" % EOF_RECONNECT_TIME)
             gevent.sleep(EOF_RECONNECT_TIME)
@@ -230,6 +241,15 @@ class IRCClient(object):
                                                               self.config.port,
                                                               self.name))
             self.connect()
+
+    def dispatch_event(self, event_name, event):
+        for inst in [self] + self.head.plugins:
+            if hasattr(inst, event_name):
+                f = getattr(inst, event_name)
+                try:
+                    f(event)
+                except LastEvent:
+                    break
 
     def send_cmd(self, cmd):
         """
@@ -257,26 +277,54 @@ class IRCClient(object):
     def join(self, channel):
         self.logger.info(u"Joining %s" % channel)
         self.send_cmd(u"JOIN %s" % channel)
+        self.me(channel, "saluta tutti")
 
     def quit(self, message="Bye"):
         self.logger.info(u"QUIT requested")
-        self.running = False
-        self.send_cmd(u"QUIT :%s" % message)
-        # self.stream.close()
+        if self.running:
+            self.send_cmd(u"QUIT :%s" % message)
+            self.running = False # XXX
+        # self.stream.close() # XXX
         self.socket.close()
+        self.greenlet.kill()
 
     def notice(self, target, message):
+        """
+        NOTICE
+        """
         self.logger.debug(u"NOTICE %s :%s" % (target, message))
         self.send_cmd(u"NOTICE %s :%s" % (target, message))
 
-    def ctcp(self, target, message):
-        self.logger.debug(u"SENT CTCP TO %s :%s" % (target, message))
-        # XXX unicode?
-        self.notice(target, CTCPCHR + message + CTCPCHR)
+    def me(self, target, message):
+        self.msg(target, u"%sACTION %s%s" % (CTCPCHR, message, CTCPCHR))
 
-    def ctcp_ping(self, target, message):
-        self.logger.info(u"CTCP PING reply to %s" % target)
-        self.ctcp(target, u"PING " + message)
+    def ctcp(self, target, message):
+        """
+        Invia un CTCP.
+        """
+        self.logger.debug(u"SENT CTCP TO %s :%s" % (target, message))
+        self.msg(target, u"%s%s%s" % (CTCPCHR, message, CTCPCHR))
+        # self.msg(target, CTCPCHR + message + CTCPCHR)
+
+    def ctcp_reply(self, target, message):
+        """
+        Risponde a un CTCP.
+        """
+        self.logger.debug(u"CTCP REPLY TO %s: %s" % (target, message))
+        self.notice(target, u''.join([CTCPCHR, message, CTCPCHR]))
+
+    def ctcp_ping(self, target):
+        """
+        Manda un CTCP PING a `target`.
+        """
+        tempo = int(time.time())
+        self.ctcp(target, u"PING %d" % (tempo,))
+
+    def ping_reply(self, target, message):
+        """
+        Risponde a un CTCP PING.
+        """
+        self.ctcp_reply(target, u"PING %s" % message)
 
     def nickserv_login(self):
         """
@@ -286,7 +334,24 @@ class IRCClient(object):
         self.msg(u'NickServ', u"IDENTIFY %s" % self.config.nickserv)
         gevent.sleep(1)
 
-    # EVENTS
+    def ciclo_pingo(self):
+        """
+        Setta il timer per pingare noi stessi.
+        """
+        self.ping_timer = timer(PING_DELAY, self.pingati)
+
+    def pingati(self):
+        """
+        Pinga se stesso e setta di nuovo il timer.
+        """
+        # verifico che siamo connessi; non e' troppo affidabile...
+        if self.running:
+            self.logger.debug(u"PING to myself")
+            self.ctcp_ping(self.current_nickname)
+            self.ciclo_pingo()
+
+
+    # EVENTS ################################################################################
 
     def on_001(self, event):
         """
@@ -299,32 +364,64 @@ class IRCClient(object):
         for channel in self.config.channels:
             self.join(channel)
 
+    def on_433(self, event):
+        """
+        Nickname is already in use.
+        """
+
+        new_nick = self.current_nickname + '_'
+        self.set_nickname(new_nick)
+
     def on_PING(self, event):
-        self.logger.debug("PING from server")
+        self.logger.debug(u"PING from server")
         self.send_cmd(u"PONG %s" % event.argstr)
 
     def on_PRIVMSG(self, event):
         target = event.args[0]
-        if target == self.current_nickname:
-            private = True
-        else:
-            private = False
-
-        if event.text.startswith(self.current_nickname) or private:
-            event.reply(get_random_reply())
-            return
+        private = target == self.current_nickname
 
         # CTCP
-        if (target == self.current_nickname and event.text.startswith(CTCPCHR)):
+        if (private and event.text.startswith(CTCPCHR)):
             event.text = event.text.strip(CTCPCHR)
 
+            # PING request
             if event.text.startswith(u"PING"):
                 ping = event.text.split(u' ', 1)[1]
-                self.logger.info(u"CTCP PING from %s (%s)" % (event.user.nickname, ping))
-                self.ctcp_ping(event.nickname, ping)
+                if event.user.nickname != self.current_nickname:
+                    self.logger.info(u"CTCP PING from %s (%s)" % (event.user.nickname, ping))
+                self.ping_reply(event.user.nickname, ping)
+            elif event.text.startswith(u"VERSION"):
+                self.logger.info(u"CTCP VERSION from %s" % (event.user.nickname,))
+                self.ctcp_reply(event.user.nickname, u"VERSION %s" % FULL_VERSION)
             else:
                 self.logger.info(u"CTCP ? from %s: %s" % (event.user.nickname,
                                                           event.text))
+
+        elif event.text.startswith(self.current_nickname) or private:
+            event.reply(get_random_reply())
+
+    def on_NOTICE(self, event):
+        """
+        Per lo piu' sono CTCP reply.
+        """
+        target = event.args[0]
+        private = target == self.current_nickname
+
+        # CTCP reply
+        if (private and event.text.startswith(CTCPCHR)):
+            event.text = event.text.strip(CTCPCHR)
+            text_args = event.text.split()
+
+            # PING reply
+            if event.text.startswith(u"PING"):
+                try:
+                    delay = time.time() - int(text_args[1])
+                except (IndexError, ValueError), e:
+                    self.logger.notice(u"Invalid PING timestamp from %s: %s" % (event.user.nickname,
+                                                                                event.text))
+                else:
+                    self.logger.debug(u"ping reply from %s: %d seconds" % (event.nickname,
+                                                                           delay))
 
     def on_KICK(self, event):
         channel = event.args[0]
@@ -339,11 +436,7 @@ class IRCClient(object):
 
     def on_cmd_quit(self, event):
         if event.user.nickname == u'sand':
-            if event.text == '':
-                reason = get_random_quit()
-            else:
-                reason = event.text
-
+            reason = get_random_quit() if event.text == '' else event.text
             self.logger.warning(u"Global quit from %s (%s)" % (event.user.nickname, reason))
             for client in self.head.connections.values():
                 client.quit(reason)
@@ -368,6 +461,8 @@ class IRCClient(object):
                 if line:
                     event.reply(line, prefix=False)
 
+    def on_cmd_pingami(self, event):
+        self.ctcp_ping(event.user.nickname)
 
 class BigHead(object):
     """
@@ -419,7 +514,9 @@ class BigHead(object):
         for name, server in self.config.servers.iteritems():
             irc = IRCClient(name, server, self.config, self)
             self.connections[name] = irc
-            jobs.append(gevent.spawn(irc.connect))
+            job = gevent.spawn(irc.connect)
+            irc.greenlet = job
+            jobs.append(job)
 
         try:
             gevent.joinall(jobs)

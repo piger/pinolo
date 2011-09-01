@@ -18,13 +18,14 @@ exclude = ('unipony', 'cheese', 'pony', 'beavis.zen', 'calvin',
 
 def get_shapes():
     try:
-        p = subprocess.Popen(['cowsay', '-l'], stdout=subprocess.PIPE)
+        # nota: subprocess.check_output e' python 2.7!
+        # output = subprocess.check_output(['cowsay', '-l'])
+        p = subprocess.Popen(shlex.split("cowsay -l"), stdout=subprocess.PIPE)
         output = p.communicate()[0]
     except OSError, e:
         logger.error("ERROR: Disabling cowsay (%s)" % e)
         return []
-
-    output = output[output.index("\n")+1:]
+    output = ' '.join(output.split("\n")[1:-1])
     shapes = [x for x in output.split() if x not in exclude]
     return shapes
 shapes = get_shapes()
