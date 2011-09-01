@@ -18,7 +18,10 @@ exclude = ('unipony', 'cheese', 'pony', 'beavis.zen', 'calvin',
 
 def get_shapes():
     try:
-        output = subprocess.check_output(['cowsay', '-l'])
+        # nota: subprocess.check_output e' python 2.7!
+        # output = subprocess.check_output(['cowsay', '-l'])
+        p = subprocess.Popen(shlex.split("cowsay -l"), stdout=subprocess.PIPE)
+        output = p.communicate()[0]
     except OSError, e:
         logger.error("ERROR: Disabling cowsay (%s)" % e)
         return []
