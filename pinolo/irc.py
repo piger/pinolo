@@ -123,6 +123,7 @@ class IRCClient(object):
         self.running = False
 
         self.ping_timer = None
+        self.greenlet = None
 
     def connect(self):
         while True:
@@ -280,10 +281,12 @@ class IRCClient(object):
 
     def quit(self, message="Bye"):
         self.logger.info(u"QUIT requested")
-        self.running = False # XXX
-        self.send_cmd(u"QUIT :%s" % message)
+        if self.running:
+            self.send_cmd(u"QUIT :%s" % message)
+            self.running = False # XXX
         # self.stream.close() # XXX
         self.socket.close()
+        self.greenlet.kill()
 
     def notice(self, target, message):
         """
@@ -511,7 +514,9 @@ class BigHead(object):
         for name, server in self.config.servers.iteritems():
             irc = IRCClient(name, server, self.config, self)
             self.connections[name] = irc
-            jobs.append(gevent.spawn(irc.connect))
+            job = gevent.spawn(irc.connect)
+            irc.greenlet = job
+            jobs.append(job)
 
         try:
             gevent.joinall(jobs)
