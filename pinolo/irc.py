@@ -280,9 +280,9 @@ class IRCClient(object):
 
     def quit(self, message="Bye"):
         self.logger.info(u"QUIT requested")
-        self.running = False
+        self.running = False # XXX
         self.send_cmd(u"QUIT :%s" % message)
-        # self.stream.close()
+        # self.stream.close() # XXX
         self.socket.close()
 
     def notice(self, target, message):
@@ -300,13 +300,14 @@ class IRCClient(object):
         Invia un CTCP.
         """
         self.logger.debug(u"SENT CTCP TO %s :%s" % (target, message))
-        self.msg(target, CTCPCHR + message + CTCPCHR)
+        self.msg(target, u"%s%s%s" % (CTCPCHR, message, CTCPCHR))
+        # self.msg(target, CTCPCHR + message + CTCPCHR)
 
     def ctcp_reply(self, target, message):
         """
         Risponde a un CTCP.
         """
-        self.logger.debug("CTCP REPLY TO %s: %s" % (target, message))
+        self.logger.debug(u"CTCP REPLY TO %s: %s" % (target, message))
         self.notice(target, u''.join([CTCPCHR, message, CTCPCHR]))
 
     def ctcp_ping(self, target):
@@ -314,7 +315,7 @@ class IRCClient(object):
         Manda un CTCP PING a `target`.
         """
         tempo = int(time.time())
-        self.ctcp(target, "PING " + str(tempo))
+        self.ctcp(target, u"PING %d" % (tempo,))
 
     def ping_reply(self, target, message):
         """
@@ -340,9 +341,11 @@ class IRCClient(object):
         """
         Pinga se stesso e setta di nuovo il timer.
         """
-        self.logger.debug("PING to myself")
-        self.ctcp_ping(self.current_nickname)
-        self.ciclo_pingo()
+        # verifico che siamo connessi; non e' troppo affidabile...
+        if self.running:
+            self.logger.debug(u"PING to myself")
+            self.ctcp_ping(self.current_nickname)
+            self.ciclo_pingo()
 
 
     # EVENTS ################################################################################
@@ -367,7 +370,7 @@ class IRCClient(object):
         self.set_nickname(new_nick)
 
     def on_PING(self, event):
-        self.logger.debug("PING from server")
+        self.logger.debug(u"PING from server")
         self.send_cmd(u"PONG %s" % event.argstr)
 
     def on_PRIVMSG(self, event):
@@ -381,10 +384,12 @@ class IRCClient(object):
             # PING request
             if event.text.startswith(u"PING"):
                 ping = event.text.split(u' ', 1)[1]
-                self.logger.info(u"CTCP PING from %s (%s)" % (event.user.nickname, ping))
+                if event.user.nickname != self.current_nickname:
+                    self.logger.info(u"CTCP PING from %s (%s)" % (event.user.nickname, ping))
                 self.ping_reply(event.user.nickname, ping)
             elif event.text.startswith(u"VERSION"):
-                self.ctcp_reply(event.user.nickname, "VERSION %s" % FULL_VERSION)
+                self.logger.info(u"CTCP VERSION from %s" % (event.user.nickname,))
+                self.ctcp_reply(event.user.nickname, u"VERSION %s" % FULL_VERSION)
             else:
                 self.logger.info(u"CTCP ? from %s: %s" % (event.user.nickname,
                                                           event.text))
@@ -402,13 +407,18 @@ class IRCClient(object):
         # CTCP reply
         if (private and event.text.startswith(CTCPCHR)):
             event.text = event.text.strip(CTCPCHR)
+            text_args = event.text.split()
 
             # PING reply
             if event.text.startswith(u"PING"):
-                tempo = event.text.split(' ', 1)[-1]
-                delay = time.time() - int(tempo)
-                self.logger.debug("ping reply from %s: %d seconds" % (event.nickname,
-                                                                      delay))
+                try:
+                    delay = time.time() - int(text_args[1])
+                except (IndexError, ValueError), e:
+                    self.logger.notice(u"Invalid PING timestamp from %s: %s" % (event.user.nickname,
+                                                                                event.text))
+                else:
+                    self.logger.debug(u"ping reply from %s: %d seconds" % (event.nickname,
+                                                                           delay))
 
     def on_KICK(self, event):
         channel = event.args[0]
