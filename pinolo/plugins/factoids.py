@@ -2,12 +2,24 @@
 
 import logging
 import re
+import random
 
 from pinolo.plugins import Plugin
 from pinolo.database import Base, Session
 
 from sqlalchemy import *
 from sqlalchemy.orm.exc import NoResultFound
+
+re_domanda = re.compile(r"""
+(?:(?:cosa|chi|che|cos')\s*(?:e'|è|é)\s+)?
+([^?]+)\s*\?+
+""", re.UNICODE | re.VERBOSE)
+re_subjfact = re.compile(r"\s*(?:e'|è|é)\s*", re.UNICODE)
+
+risposte = ("pare sia", "e'", "a mio dire e'", "secondo le scritture e'",
+            "me pare tipo", "e' tipo", "assomiglia a",
+            "m'hanno detto che e'",)
+
 
 class Fact(Base):
     __tablename__ = 'facts'
@@ -29,18 +41,22 @@ class Fact(Base):
 class FactsPlugin(Plugin):
     def on_PRIVMSG(self, event):
         if event.user.nickname == event.client.current_nickname: return
-        match = re.search(r"(?:cosa|chi)\s+e'\s+(.*)\?$", event.text)
+        match = re_domanda.search(event.text)
         if match:
             self.domanda(event, match.group(1).strip())
         else:
-            match = re.search(r"(.*?)\s+e'\s+(.*)", event.text)
-            if match:
-                self.apprendi(event, match.group(1), match.group(2))
+            try:
+                subject, fact = re_subjfact.split(event.text, 1)
+            except ValueError:
+                return
+            else:
+                if subject: # evito subject = ""
+                    self.apprendi(event, subject, fact)
 
     def domanda(self, event, subject):
         fact = Fact.query.filter_by(subject=subject).first()
         if fact:
-            event.reply(u"%s pare sia %s" % (subject, fact.meaning))
+            event.reply(u"%s %s %s" % (subject, random.choice(risposte), fact.meaning))
 
     def apprendi(self, event, subject, meaning):
         session = Session()
