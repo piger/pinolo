@@ -201,7 +201,8 @@ class IRCClient(object):
             if line.startswith(u':'):
                 source, line = line[1:].split(u' ', 1)
             else:
-                self.logger.warning("strana riga dal server IRC: %r" % line)
+                # self.logger.warning("strana riga dal server IRC: %r" % line)
+                # PING :server.irc.net
                 source = None
 
             if source:
@@ -417,8 +418,8 @@ class IRCClient(object):
                 try:
                     delay = time.time() - int(text_args[1])
                 except (IndexError, ValueError), e:
-                    self.logger.notice(u"Invalid PING timestamp from %s: %s" % (event.user.nickname,
-                                                                                event.text))
+                    self.logger.info(u"Invalid PING timestamp from %s: %s" % (event.user.nickname,
+                                                                              event.text))
                 else:
                     self.logger.debug(u"ping reply from %s: %d seconds" % (event.nickname,
                                                                            delay))
