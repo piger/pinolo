@@ -50,7 +50,7 @@ class FactsPlugin(Plugin):
             except ValueError:
                 return
             else:
-                if subject: # evito subject = ""
+                if subject and fact: # evito subject = ""
                     self.apprendi(event, subject, fact)
 
     def domanda(self, event, subject):
