@@ -1,3 +1,5 @@
+import hashlib
+
 def decode_text(text):
     for enc in ('utf-8', 'iso-8859-15', 'iso-8859-1', 'ascii'):
         try:
@@ -6,3 +8,6 @@ def decode_text(text):
             continue
     # fallback
     return text.decode('utf-8', 'replace')
+
+def md5(text):
+    return hashlib.md5(text).hexdigest()
