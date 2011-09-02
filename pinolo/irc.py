@@ -10,12 +10,11 @@ https://gist.github.com/676306
 import sys, os, re
 import time
 import logging
-import imp
 
 import gevent
 from gevent.core import timer
 from gevent import socket, ssl
-from gevent.core import timer
+from gevent.queue import Queue
 
 import pinolo.plugins
 from pinolo import FULL_VERSION, EOF_RECONNECT_TIME, FAILED_CONNECTION_RECONNECT_TIME
@@ -115,6 +114,7 @@ class IRCClient(object):
         self.nickname = self.config.nickname
         self.current_nickname = self.nickname
 
+        self.oqueue = Queue()
         self.socket = None
         self.stream = None
         self.throttle_out = 0.5
@@ -124,6 +124,8 @@ class IRCClient(object):
 
         self.ping_timer = None
         self.greenlet = None
+
+        self.g_output = gevent.spawn(self.output_loop)
 
     def connect(self):
         while True:
@@ -268,17 +270,21 @@ class IRCClient(object):
                     break
 
     def send_cmd(self, cmd):
+        self.oqueue.put(cmd)
+
+    def output_loop(self):
         """
         Invia una riga al server IRC apponendo il giusto newline.
         """
-        if isinstance(cmd, unicode):
-            cmd = cmd.encode('utf-8')
-        self.stream.write(cmd + NEWLINE)
-        self.stream.flush()
+        for cmd in self.oqueue:
+            if isinstance(cmd, unicode):
+                cmd = cmd.encode('utf-8')
+            self.stream.write(cmd + NEWLINE)
+            self.stream.flush()
 
     def msg(self, target, message):
         """
-        Our `PRIVMSG`.
+        Our `PRIVMSG` with flood protection.
         """
         now = time.time()
         elapsed = now - self._last_write_time
@@ -300,6 +306,8 @@ class IRCClient(object):
         if self.running:
             self.send_cmd(u"QUIT :%s" % message)
             self.running = False # XXX
+        self.oqueue.put(StopIteration) # uno shutdown pulito, spero.
+        self.stop_ciclo_pingo()
         # self.stream.close() # XXX
         self.socket.close()
         self.greenlet.kill()
@@ -354,6 +362,10 @@ class IRCClient(object):
         Setta il timer per pingare noi stessi.
         """
         self.ping_timer = timer(PING_DELAY, self.pingati)
+
+    def stop_ciclo_pingo(self):
+        if self.ping_timer is not None:
+            self.ping_timer.cancel()
 
     def pingati(self):
         """

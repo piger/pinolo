@@ -30,7 +30,7 @@ FEED_LIST = ["http://xkcd.com/rss.xml",
 HTTP_GET_TIMEOUT = float(60 * 2)
 
 def title_from_url(url):
-    match = re.match(r"http://([^/]+)/?", url, re.UNICODE)
+    match = re.match(r"http://([^/]+)/?", url)
     if match:
         return match.group(1)
     else:
