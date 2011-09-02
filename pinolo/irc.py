@@ -276,7 +276,10 @@ class IRCClient(object):
         """
         Invia una riga al server IRC apponendo il giusto newline.
         """
-        for cmd in self.oqueue:
+        while True:
+            # NOTA: Queue di gevent 0.12.2-7 di debian non supporta l'iterazione :(
+            cmd = self.oqueue.get()
+            if cmd is StopIteration: break
             if isinstance(cmd, unicode):
                 cmd = cmd.encode('utf-8')
             self.stream.write(cmd + NEWLINE)
@@ -497,7 +500,8 @@ class BigHead(object):
 
         # NOTA: SKIPPARE I .pyc!!!
         for root, dirs, files in os.walk(self.plugins_dir):
-            files = [os.path.splitext(x)[0] for x in files if not x.startswith('_')]
+            files = [os.path.splitext(x)[0] for x in files
+                     if (not x.startswith('_') and x.endswith('.py'))]
             for libname in set(files): # uniqify
                 libname = "pinolo.plugins." + libname
                 self.logger.info(u"Importing plugin: %s" % (libname,))
