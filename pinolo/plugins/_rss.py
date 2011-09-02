@@ -1,18 +1,6 @@
-# import os
-# from pinolo.plugins import Plugin
-
-# class RssPlugin(Plugin):
-#     def __init__(self, head):
-#         super(RssPlugin, self).__init__(head)
-#         self.rssfile = os.path.join(self.head.config.datadir, 'rss.txt')
-#         self.feeds = []
-
-#     def read_rss_file(self):
-#         with open(self.rssfile) as fd:
-#             self.feeds = [x for x in fd.readlines() if x.startswith('http')]
-
 import os, re, sys
-import json, pickle
+import pickle
+import codecs
 
 import gevent
 from gevent import socket
@@ -20,6 +8,7 @@ from gevent.pool import Pool
 import gevent.queue
 
 import feedparser
+from pinolo.plugins import Plugin
 from pinolo.plugins.google import gevent_HTTPHandler, gevent_HTTPConnection
 
 FEED_LIST = ["http://xkcd.com/rss.xml",
@@ -36,16 +25,22 @@ def title_from_url(url):
     else:
         return None
 
-class MyFeedParser(object):
-    def __init__(self):
-        self.pool = Pool(10)
+class RSSPlugin(Plugin):
+    def __init__(self, head):
+        super(RSSPlugin, self).__init__(head)
+        self.pool = Pool(5)
         self.queue = gevent.queue.Queue()
-        self.datadir = os.getcwd()
-        self.cache_file = os.path.join(os.getcwd(), "rss.dump")
+        self.feed_file = os.path.join(self.head.config.datadir, "rss.txt")
+        self.cache_file = os.path.join(self.head.config.datadir, "rss.cache")
+        self.feed_list = []
         self.feeds = {}
 
+    def activate(self):
+        self.load_rss_file()
+        self.load_cache()
+
     def fetch_all(self):
-        for feed in FEED_LIST:
+        for feed in self.feed_list:
             self.pool.spawn(self.parse_feed, feed)
         self.pool.join()
         self.write_cache()
@@ -81,6 +76,15 @@ class MyFeedParser(object):
             with open(self.cache_file, 'rb') as fd:
                 data = pickle.load(fd)
                 self.feeds.update(data)
+        except IOError, e:
+            return
+
+    def load_rss_file(self):
+        try:
+            with codecs.open(self.feed_file, 'r', encoding='utf-8') as fd:
+                feeds = fd.readlines()
+                feeds = [x.strip() for x in feeds]
+                self.feed_list.extend(feeds)
         except IOError, e:
             return
 
