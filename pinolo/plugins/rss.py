@@ -178,8 +178,7 @@ class RSSPlugin(Plugin):
         ritorna `True` anche se la data di pubblicazione e' assente o nel futuro.
         """
         today = datetime.datetime.today()
-        published = entry.get('published_parsed', None)
-        if published is None: return True
+        published = the_fucking_date(entry)
         published = datetime.datetime.fromtimestamp(time.mktime(published))
         # data nel futuro?
         if published > today: return True
