@@ -298,6 +298,11 @@ class IRCClient(object):
         self.send_cmd(u"PRIVMSG %s :%s" % (target, message))
         self._last_write_time = now
 
+    def msg_channels(self, msg, channels=None):
+        if channels is None:
+            channels = self.config.channels[:]
+        for channel in channels:
+            self.msg(channel, msg)
 
     def join(self, channel):
         self.logger.info(u"Joining %s" % channel)
