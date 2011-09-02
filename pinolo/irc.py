@@ -463,9 +463,17 @@ class BigHead(object):
         self.connections = {}
         self.plugins = []
         self.logger = logging.getLogger('pinolo.head')
-        plugins_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                                   'plugins')
+        self.plugins_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                                        'plugins')
+        self.db_uri = database_filename(self.config.datadir)
 
+        self.load_plugins()
+        self.start_plugins()
+        # init_db() va DOPO start_plugins() per creare eventuali tabelle del DB.
+        init_db(self.db_uri)
+        self.activate_plugins()
+
+    def load_plugins(self):
         def my_import(name):
             """
             http://effbot.org/zone/import-string.htm#importing-by-filename
@@ -475,24 +483,21 @@ class BigHead(object):
                 m = getattr(m, n)
             return m
 
-        for root, dirs, files in os.walk(plugins_dir):
+        for root, dirs, files in os.walk(self.plugins_dir):
             files = [os.path.splitext(x)[0] for x in files if not x.startswith('_')]
             for libname in set(files): # uniqify
                 libname = "pinolo.plugins." + libname
                 self.logger.info(u"Importing plugin: %s" % (libname,))
                 p = my_import(libname)
 
+    def start_plugins(self):
         for plugin_name, PluginClass in pinolo.plugins.registry:
             # init and append to internal list
             self.plugins.append(PluginClass(self))
             # and update aliases
             COMMAND_ALIASES.update(PluginClass.COMMAND_ALIASES.items())
 
-        # init db
-        db_uri = database_filename(self.config.datadir)
-        init_db(db_uri)
-
-        # activate plugins
+    def activate_plugins(self):
         for plugin in self.plugins:
             plugin.activate()
 
