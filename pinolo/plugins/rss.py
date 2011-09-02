@@ -20,7 +20,7 @@ from pinolo.plugins.google import gevent_HTTPHandler, gevent_HTTPConnection
 HTTP_GET_TIMEOUT = float(60 * 2)
 POOL_SIZE = 5
 RSS_CRONTAB = float(60 * 10) # 10 min
-RSS_CRONTAB = float(10) # 30 sec
+# RSS_CRONTAB = float(10) # 30 sec
 logger = logging.getLogger('pinolo.plugins.rss')
 
 
