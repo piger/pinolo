@@ -35,8 +35,21 @@ class Markov(Plugin):
         for phrase in phrases:
             self.learn_phrase(phrase)
 
-    def generate(self, max=100, from_beginnings=True):
-        if from_beginnings:
+    def beginnings_from_sample(self, sample):
+        words = sample.split()
+
+        for i in range(len(words) - self.n):
+            beginning = tuple(words[i:i+self.n])
+            if beginning in self.beginnings:
+                return beginning
+        return None
+
+    def generate(self, max=100, from_beginnings=False, from_sample=None):
+        if from_sample:
+            start = self.beginnings_from_sample(from_sample)
+            if start is None:
+                start = random.choice(list(self.beginnings))
+        elif from_beginnings:
             start = random.choice(list(self.beginnings))
         else:
             start = random.choice(self.brain.keys())
@@ -94,6 +107,14 @@ class Markov(Plugin):
     def on_cmd_savemarkov(self, event):
         if event.user.nickname == u'sand':
             self.save()
+
+    def on_cmd_markov(self, event):
+        if event.text:
+            phrase = self.generate(from_sample=event.text)
+        else:
+            phrase = self.generate(from_beginnings=True)
+        if phrase:
+            event.reply(phrase)
 
 if __name__ == '__main__':
     import sys
