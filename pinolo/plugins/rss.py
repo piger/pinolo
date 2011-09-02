@@ -20,6 +20,7 @@ from pinolo.plugins.google import gevent_HTTPHandler, gevent_HTTPConnection
 HTTP_GET_TIMEOUT = float(60 * 2)
 POOL_SIZE = 5
 RSS_CRONTAB = float(60 * 10) # 10 min
+RSS_CRONTAB = float(10) # 30 sec
 logger = logging.getLogger('pinolo.plugins.rss')
 
 
@@ -39,11 +40,18 @@ def title_from_url(url):
     else:
         return None
 
+def the_fucking_date(entry):
+    if entry.has_key('updated_parsed'):
+        return entry['updated_parsed']
+    elif entry.has_key('published_parsed'):
+        return entry['published_parsed']
+    else:
+        return time.time()
+
 class RSSPlugin(Plugin):
     def __init__(self, head):
         super(RSSPlugin, self).__init__(head)
         self.pool = Pool(POOL_SIZE)
-        self.queue = gevent.queue.Queue()
         self.feed_file = os.path.join(self.head.config.datadir, "rss.txt")
         self.cache_file = os.path.join(self.head.config.datadir, "rss.cache")
         self.seen_file = os.path.join(self.head.config.datadir, "rss.seen")
@@ -51,6 +59,7 @@ class RSSPlugin(Plugin):
         self.feeds = {}
         self.seen_list = defaultdict(list)
         self.gtimer = None
+        self.gjob = None
 
     def activate(self):
         """
@@ -62,17 +71,20 @@ class RSSPlugin(Plugin):
         self.load_seen_file()
         self.load_cache()
 
-        self.gtimer = timer(RSS_CRONTAB, self.job)
+        # self.gtimer = timer(RSS_CRONTAB, self.job)
+        self.gjob = gevent.spawn(self.job)
 
     def deactivate(self):
         if self.gtimer is not None:
             self.gtimer.cancel()
 
     def job(self):
-        self.load_rss_file()
-        self.fetch_all()
-        self.print_feeds()
-        self.gtimer = timer(RSS_CRONTAB, self.job) # reschedule
+        while True:
+            gevent.sleep(RSS_CRONTAB)
+            self.load_rss_file()
+            self.fetch_all()
+            self.print_feeds()
+            # self.gtimer = timer(RSS_CRONTAB, self.job) # reschedule
 
     def fetch_all(self):
         """
@@ -87,9 +99,10 @@ class RSSPlugin(Plugin):
         """
         Fetcha un feed RSS usando sia `etag` che `HTTP Last-Modified`, con un timeout.
         """
+        logger.debug(u"Fetching %s" % (url,))
         result = None
         with gevent.Timeout(HTTP_GET_TIMEOUT, False):
-            result = feedparser.parse(url, handlers=[gevent_HTTPHandler],
+            result = feedparser.parse(url, handlers=gevent_HTTPHandler,
                                       etag=etag, modified=modified)
         return result
 
@@ -120,15 +133,18 @@ class RSSPlugin(Plugin):
             # feed vuoto/errato.
             if feed is None: continue
 
-            for entry in feed.entries:
+            entries = feed.entries[:]
+            # sorta per data di pubblicazione
+            sorted_entries = sorted(entries, key=lambda entry: the_fucking_date(entry))
+            sorted_entries.reverse()
+
+            for entry in sorted_entries[:5]:
                 hashed = self.hash_entry(entry)
                 if hashed is None: continue
                 if not self.is_recent_entry(entry): continue
 
                 if hashed not in self.seen_list[name]:
-                    # e = self.format_entry(entry)
-                    # print u"[%s] %s" % (name, e)
-
+                    # logger.debug(u"Announcing feed: [%s] %r" % (name, entry))
                     self.announce_entry(name, entry)
 
                     self.seen_list[name].append(hashed)
@@ -139,7 +155,7 @@ class RSSPlugin(Plugin):
 
     def announce_entry(self, name, entry):
         e = self.format_entry(entry)
-        msg = u"[%s] %s" % (name, entry)
+        msg = u"[%s] %s" % (name, e)
 
         for conn in self.head.connections.values():
             conn.msg_channels(msg)
