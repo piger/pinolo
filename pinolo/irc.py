@@ -495,6 +495,7 @@ class BigHead(object):
                 m = getattr(m, n)
             return m
 
+        # NOTA: SKIPPARE I .pyc!!!
         for root, dirs, files in os.walk(self.plugins_dir):
             files = [os.path.splitext(x)[0] for x in files if not x.startswith('_')]
             for libname in set(files): # uniqify
