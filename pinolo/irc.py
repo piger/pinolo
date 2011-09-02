@@ -121,6 +121,7 @@ class IRCClient(object):
         self._last_write_time = 0
         self.logger = logging.getLogger('pinolo.irc.' + self.name)
         self.running = False
+        self._connected = False
 
         self.ping_timer = None
         self.greenlet = None
@@ -131,7 +132,9 @@ class IRCClient(object):
         while True:
             try:
                 self._connect()
+                self._connected = True
             except socket.error, e:
+                self._connected = False
                 print u"[*] ERROR: Failed connecting to: %s:%d " \
                       "(%s) - %s" % (self.config.address, self.config.port,
                                      self.name, str(e))
@@ -249,7 +252,9 @@ class IRCClient(object):
             self.logger.debug(u"looking for event %r" % (event_name,))
             self.dispatch_event(event_name, event)
 
-        # qui siamo a EOF!
+
+        # qui siamo a EOF! ######################
+        self._connected = False
         if self.running:
             self.running = False
             self.logger.warning(u"EOF from server? Sleeping %i seconds before "
@@ -280,6 +285,9 @@ class IRCClient(object):
             # NOTA: Queue di gevent 0.12.2-7 di debian non supporta l'iterazione :(
             cmd = self.oqueue.get()
             if cmd is StopIteration: break
+            if not self._connected:
+                self.logger.error("Discarding output (we are not connected): %r" % (cmd,))
+                continue
             if isinstance(cmd, unicode):
                 cmd = cmd.encode('utf-8')
             self.stream.write(cmd + NEWLINE)
