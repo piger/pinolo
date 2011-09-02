@@ -189,10 +189,10 @@ class IRCClient(object):
             with gevent.Timeout(CONNECTION_TIMEOUT, False):
                 line = self.stream.readline()
             if line is None:
-                print "timeout"
                 self.logger.warning("Connection timeout: "
                                     "%d elapsed" % CONNECTION_TIMEOUT)
-                break
+                # break # XXX
+                continue
 
             if line == '': break # EOF
             line = decode_text(line.strip())
@@ -200,22 +200,35 @@ class IRCClient(object):
 
             if line.startswith(u':'):
                 source, line = line[1:].split(u' ', 1)
-            else:
-                # self.logger.warning("strana riga dal server IRC: %r" % line)
-                # PING :server.irc.net
-                source = None
-
-            if source:
                 nickname, ident, hostname = parse_usermask(source)
             else:
+                # PING :server.irc.net
                 nickname, ident, hostname = (None, None, None)
 
+            # Parsa il `command` e i suoi `argstr`; in caso di CTCP o !comando
+            # cambia `command` adeguatamente.
             command, line = line.split(u' ', 1)
             if u' :' in line:
                 argstr, text = line.split(u' :', 1)
 
+                # CTCP
+                if (text.startswith(CTCPCHR) and text.endswith(CTCPCHR)):
+                    text = text[1:-1]
+                    old_command = command
+
+                    try:
+                        command, argstr = text.split(u' ', 1)
+                    except ValueError:
+                        command, argstr = text, u''
+                    text = u''
+
+                    if old_command == u"PRIVMSG":
+                        command = u"CTCP_" + command
+                    else:
+                        command = u"CTCP_REPLY_" + command
+
                 # E' un "comando" del Bot
-                if text.startswith(u'!'):
+                elif text.startswith(u'!'):
                     try:
                         command, text = text[1:].split(u' ', 1)
                     except ValueError:
@@ -225,11 +238,13 @@ class IRCClient(object):
                     command = u"cmd_" + COMMAND_ALIASES.get(command, command)
             else:
                 argstr, text = line, u''
+
             args = argstr.split()
             user = IRCUser(ident, hostname, nickname)
             event = IRCEvent(self, user, command, argstr, args, text)
 
             event_name = u'on_%s' % command
+            self.logger.debug(u"looking for event %r" % (event_name,))
             self.dispatch_event(event_name, event)
 
         # qui siamo a EOF!
@@ -305,14 +320,13 @@ class IRCClient(object):
         """
         self.logger.debug(u"SENT CTCP TO %s :%s" % (target, message))
         self.msg(target, u"%s%s%s" % (CTCPCHR, message, CTCPCHR))
-        # self.msg(target, CTCPCHR + message + CTCPCHR)
 
     def ctcp_reply(self, target, message):
         """
         Risponde a un CTCP.
         """
         self.logger.debug(u"CTCP REPLY TO %s: %s" % (target, message))
-        self.notice(target, u''.join([CTCPCHR, message, CTCPCHR]))
+        self.notice(target, u"%s%s%s" % (CTCPCHR, message, CTCPCHR))
 
     def ctcp_ping(self, target):
         """
@@ -321,7 +335,7 @@ class IRCClient(object):
         tempo = int(time.time())
         self.ctcp(target, u"PING %d" % (tempo,))
 
-    def ping_reply(self, target, message):
+    def ctcp_ping_reply(self, target, message):
         """
         Risponde a un CTCP PING.
         """
@@ -369,11 +383,13 @@ class IRCClient(object):
         """
         Nickname is already in use.
         """
-
         new_nick = self.current_nickname + '_'
         self.set_nickname(new_nick)
 
     def on_PING(self, event):
+        """
+        Server PING.
+        """
         self.logger.debug(u"PING from server")
         self.send_cmd(u"PONG %s" % event.argstr)
 
@@ -381,48 +397,20 @@ class IRCClient(object):
         target = event.args[0]
         private = target == self.current_nickname
 
-        # CTCP
-        if (private and event.text.startswith(CTCPCHR)):
-            event.text = event.text.strip(CTCPCHR)
-
-            # PING request
-            if event.text.startswith(u"PING"):
-                ping = event.text.split(u' ', 1)[1]
-                if event.user.nickname != self.current_nickname:
-                    self.logger.info(u"CTCP PING from %s (%s)" % (event.user.nickname, ping))
-                self.ping_reply(event.user.nickname, ping)
-            elif event.text.startswith(u"VERSION"):
-                self.logger.info(u"CTCP VERSION from %s" % (event.user.nickname,))
-                self.ctcp_reply(event.user.nickname, u"VERSION %s" % FULL_VERSION)
-            else:
-                self.logger.info(u"CTCP ? from %s: %s" % (event.user.nickname,
-                                                          event.text))
-
-        elif event.text.startswith(self.current_nickname) or private:
+        if event.text.startswith(self.current_nickname) or private:
             event.reply(get_random_reply())
 
+    def on_CTCP_PING(self, event):
+        if event.user.nickname != self.current_nickname:
+            self.logger.info(u"CTCP PING from %s: %s" % (event.user.nickname, event.argstr))
+        self.ctcp_ping_reply(event.user.nickname, event.argstr)
+
+    def on_CTCP_VERSION(self, event):
+        self.logger.info(u"CTCP VERSION from %s" % event.user.nickname)
+        self.ctcp_reply(event.user.nickname, u"VERSION %s" % FULL_VERSION)
+
     def on_NOTICE(self, event):
-        """
-        Per lo piu' sono CTCP reply.
-        """
-        target = event.args[0]
-        private = target == self.current_nickname
-
-        # CTCP reply
-        if (private and event.text.startswith(CTCPCHR)):
-            event.text = event.text.strip(CTCPCHR)
-            text_args = event.text.split()
-
-            # PING reply
-            if event.text.startswith(u"PING"):
-                try:
-                    delay = time.time() - int(text_args[1])
-                except (IndexError, ValueError), e:
-                    self.logger.info(u"Invalid PING timestamp from %s: %s" % (event.user.nickname,
-                                                                              event.text))
-                else:
-                    self.logger.debug(u"ping reply from %s: %d seconds" % (event.nickname,
-                                                                           delay))
+        pass
 
     def on_KICK(self, event):
         channel = event.args[0]
