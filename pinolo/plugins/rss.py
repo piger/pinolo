@@ -31,12 +31,11 @@ def title_from_url(url):
         return None
 
 def the_fucking_date(entry):
-    if entry.has_key('updated_parsed'):
-        return entry['updated_parsed']
-    elif entry.has_key('published_parsed'):
-        return entry['published_parsed']
-    else:
-        return time.time()
+    for key in ('updated_parsed', 'published_parsed'):
+        if entry.has_key(key):
+            return entry[key]
+    return time.time()
+
 
 class RSSPlugin(Plugin):
     def __init__(self, head):
