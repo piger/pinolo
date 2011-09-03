@@ -13,24 +13,14 @@ import gevent.queue
 
 import feedparser
 from pinolo.plugins import Plugin
-from pinolo.utils import md5
-from pinolo.plugins.google import gevent_HTTPHandler, gevent_HTTPConnection
+from pinolo.utils import md5, gevent_HTTPHandler
 
 
 HTTP_GET_TIMEOUT = float(60 * 2)
 POOL_SIZE = 5
 RSS_CRONTAB = float(60 * 10) # 10 min
-# RSS_CRONTAB = float(10) # 30 sec
+# RSS_CRONTAB = float(10) # 10 sec / DEBUG
 logger = logging.getLogger('pinolo.plugins.rss')
-
-
-class FakeConfig(object):
-    def __init__(self):
-        self.datadir = os.getcwd()
-
-class FakeHead(object):
-    def __init__(self):
-        self.config = FakeConfig()
 
 
 def title_from_url(url):
@@ -102,7 +92,7 @@ class RSSPlugin(Plugin):
         logger.debug(u"Fetching %s" % (url,))
         result = None
         with gevent.Timeout(HTTP_GET_TIMEOUT, False):
-            result = feedparser.parse(url, handlers=gevent_HTTPHandler,
+            result = feedparser.parse(url, handlers=[gevent_HTTPHandler],
                                       etag=etag, modified=modified)
         return result
 
@@ -238,13 +228,3 @@ class RSSPlugin(Plugin):
                 # self.feed_list.extend(feeds)
         except IOError, e:
             raise
-
-if __name__ == '__main__':
-    head = FakeHead()
-
-    p = RSSPlugin(head)
-    p.activate()
-
-    job = gevent.spawn(p.fetch_all)
-    gevent.joinall([job])
-    p.print_feeds()
