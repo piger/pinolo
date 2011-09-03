@@ -5,6 +5,8 @@ import subprocess
 import random
 import shlex
 
+from pinolo.utils import popen_communicate
+
 logger = logging.getLogger('pinolo.cowsay')
 
 # le flag per modificare gli occhi della mucca
@@ -43,7 +45,8 @@ def cowsay(message):
     if not shapes: return [] # error
     shape = random.choice(shapes)
     cmdline = shlex.split('cowsay %s -f %s' % (random_flag(), shape))
-    p = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-    output = p.communicate(message)[0]
+    # p = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+    output = popen_communicate(cmdline, message)
+    # output = p.communicate(message)[0]
     output = output.decode('utf-8')
     return output.split(u"\n")
