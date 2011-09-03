@@ -106,7 +106,9 @@ class RSSPlugin(Plugin):
             return
         cache = self.feeds.get(title, None)
         if cache is not None:
-            feed = self.get_feed(url, cache.etag, cache.modified)
+            etag = cache.get('etag', None)
+            modified = cache.get('modified', None)
+            feed = self.get_feed(url, etag, modified)
         else:
             feed = self.get_feed(url)
 
@@ -168,8 +170,7 @@ class RSSPlugin(Plugin):
         ritorna `True` anche se la data di pubblicazione e' assente o nel futuro.
         """
         today = datetime.datetime.today()
-        published = entry.get('published_parsed', None)
-        if published is None: return True
+        published = the_fucking_date(entry)
         published = datetime.datetime.fromtimestamp(time.mktime(published))
         # data nel futuro?
         if published > today: return True
