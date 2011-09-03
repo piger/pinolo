@@ -10,10 +10,9 @@ import json
 import urllib, urllib2
 
 import httplib
-import socket
-from gevent import socket as cosocket
 
 from pinolo.plugins import Plugin
+from pinolo.utils import gevent_HTTPConnection, gevent_HTTPHandler
 
 MAX_RESULTS = 5
 SEARCH_LANG = 'it'
@@ -50,21 +49,21 @@ def strip_html(text):
         return text # leave as is
     return re.sub("(?s)<[^>]*>|&#?\w+;", fixup, text)
 
-class gevent_HTTPConnection(httplib.HTTPConnection):
-    """
-    Per evitare monkey.patch_all():
-    http://groups.google.com/group/gevent/browse_thread/thread/c20181cb066ee97e?fwc=2&pli=1
-    """
-    def connect(self):
-        if self.timeout is socket._GLOBAL_DEFAULT_TIMEOUT:
-            timeout = cosocket._GLOBAL_DEFAULT_TIMEOUT
-        else:
-            timeout = self.timeout
-        self.sock = cosocket.create_connection((self.host, self.port), timeout)
+# class gevent_HTTPConnection(httplib.HTTPConnection):
+#     """
+#     Per evitare monkey.patch_all():
+#     http://groups.google.com/group/gevent/browse_thread/thread/c20181cb066ee97e?fwc=2&pli=1
+#     """
+#     def connect(self):
+#         # if self.timeout is socket._GLOBAL_DEFAULT_TIMEOUT:
+#         #     timeout = cosocket._GLOBAL_DEFAULT_TIMEOUT
+#         # else:
+#         #     timeout = self.timeout
+#         self.sock = cosocket.create_connection((self.host, self.port), self.timeout)
 
-class gevent_HTTPHandler(urllib2.HTTPHandler):
-    def http_open(self, request):
-        return self.do_open(gevent_HTTPConnection, request)
+# class gevent_HTTPHandler(urllib2.HTTPHandler):
+#     def http_open(self, request):
+#         return self.do_open(gevent_HTTPConnection, request)
 
 def gevent_url_fetch(url):
     opener = urllib2.build_opener(gevent_HTTPHandler)
