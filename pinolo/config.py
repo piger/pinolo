@@ -33,7 +33,8 @@ def read_config_files(filenames):
     cfg = GeneralConfig(nickname=general['nickname'] or 'pinolo',
                         ident=general['ident'] or 'pinolo',
                         realname=general['realname'] or 'Pinot di pinolo',
-                        datadir=general.get('datadir', os.getcwd()))
+                        datadir=general.get('datadir', os.getcwd()),
+                        googleapi=general.get('googleapi', None))
 
     for section in config.keys():
         if section == 'general': continue
@@ -88,11 +89,12 @@ def fix_config(global_config):
 class NewConfig(object): pass
 
 class GeneralConfig(NewConfig):
-    def __init__(self, nickname, ident, realname, datadir):
+    def __init__(self, nickname, ident, realname, datadir, googleapi=None):
         self.nickname = nickname
         self.ident = ident
         self.realname = realname
         self.datadir = datadir
+        self.googleapi = googleapi
 
         self.servers = {}
 

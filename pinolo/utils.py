@@ -1,9 +1,44 @@
+import re
 import hashlib
 import httplib
 import urllib2
+import htmlentitydefs
 
 import gevent
 from gevent import socket
+
+from pinolo import USER_AGENT
+
+def strip_html(text):
+    """
+    From: http://effbot.org/zone/re-sub.htm#unescape-html
+    """
+
+    def fixup(m):
+        text = m.group(0)
+        if text[:1] == "<":
+            return "" # ignore tags
+        if text[:2] == "&#":
+            try:
+                if text[:3] == "&#x":
+                    return unichr(int(text[3:-1], 16))
+                else:
+                    return unichr(int(text[2:-1]))
+            except ValueError:
+                pass
+
+        elif text[:1] == "&":
+            entity = htmlentitydefs.entitydefs.get(text[1:-1])
+            if entity:
+                if entity[:2] == "&#":
+                    try:
+                        return unichr(int(entity[2:-1]))
+                    except ValueError:
+                        pass
+                else:
+                    return unicode(entity, "iso-8859-1")
+        return text # leave as is
+    return re.sub("(?s)<[^>]*>|&#?\w+;", fixup, text)
 
 def decode_text(text):
     for enc in ('utf-8', 'iso-8859-15', 'iso-8859-1', 'ascii'):
@@ -36,6 +71,17 @@ class gevent_HTTPHandler(urllib2.HTTPHandler):
     def http_open(self, request):
         return self.do_open(gevent_HTTPConnection, request)
 
+def gevent_url_open(url, headers=None, data=None):
+    request = urllib2.Request(url, data)
+    request.add_header('User-Agent', USER_AGENT)
+
+    if headers:
+        for name, value in headers:
+            request.add_header(name, value)
+
+    opener = urllib2.build_opener(gevent_HTTPHandler)
+    response = opener.open(request)
+    return response
 
 # from gevent/examples
 

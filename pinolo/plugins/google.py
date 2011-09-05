@@ -1,56 +1,17 @@
 # -*- coding: utf-8 -*-
 
-import re
-import htmlentitydefs
 import json
-import urllib, urllib2
-import httplib
+import urllib
+import logging
+logger = logging.getLogger('pinolo.plugins.google')
 
-from pinolo import USER_AGENT
 from pinolo.plugins import Plugin
-from pinolo.utils import gevent_HTTPConnection, gevent_HTTPHandler
+from pinolo.utils import gevent_url_open, strip_html
 
 MAX_RESULTS = 5
 SEARCH_LANG = 'it'
 SEARCH_URL = "http://ajax.googleapis.com/ajax/services/search/web?v=1.0"
 
-def strip_html(text):
-    """
-    From: http://effbot.org/zone/re-sub.htm#unescape-html
-    """
-
-    def fixup(m):
-        text = m.group(0)
-        if text[:1] == "<":
-            return "" # ignore tags
-        if text[:2] == "&#":
-            try:
-                if text[:3] == "&#x":
-                    return unichr(int(text[3:-1], 16))
-                else:
-                    return unichr(int(text[2:-1]))
-            except ValueError:
-                pass
-
-        elif text[:1] == "&":
-            entity = htmlentitydefs.entitydefs.get(text[1:-1])
-            if entity:
-                if entity[:2] == "&#":
-                    try:
-                        return unichr(int(entity[2:-1]))
-                    except ValueError:
-                        pass
-                else:
-                    return unicode(entity, "iso-8859-1")
-        return text # leave as is
-    return re.sub("(?s)<[^>]*>|&#?\w+;", fixup, text)
-
-def gevent_url_fetch(url):
-    request = urllib2.Request(url)
-    request.add_header('User-Agent', USER_AGENT)
-    opener = urllib2.build_opener(gevent_HTTPHandler)
-    response = opener.open(request)
-    return response
 
 def parse_result(result):
     title = strip_html(result['titleNoFormatting'])
@@ -66,7 +27,7 @@ def search_google(query_string):
     })
 
     url = SEARCH_URL + "&" + query
-    response = gevent_url_fetch(url)
+    response = gevent_url_open(url)
 
     headers = response.headers
     encoding = headers['content-type'].split('charset=')[-1]
@@ -79,10 +40,31 @@ def search_google(query_string):
                     for x in json_data['responseData']['results']]
     return [] # error
 
+def shorten_url(api_key, url):
+    service_url = "https://www.googleapis.com/urlshortener/v1/url?key=" + api_key
+    headers = [('Content-Type', 'application/json'), ]
+    data = json.dumps({ 'longUrl': url })
+    response = gevent_url_open(service_url, headers, data)
+
+    headers = response.headers
+    if 'content-type' in headers:
+        encoding = headers['content-type'].split('charset=')[-1]
+        data = unicode(response.read(), encoding)
+    else:
+        data = response.read()
+        data.decode('utf-8', 'replace')
+    r = json.loads(data)
+
+    if u'id' in r:
+        return (r.get(u"longUrl", u""), r.get(u"id", u""))
+    else:
+        return None
+
 class GooglePlugin(Plugin):
 
     COMMAND_ALIASES = {
         'g': 'google',
+        'gs': 'google_shortener',
     }
 
     def on_cmd_google(self, event):
@@ -93,6 +75,15 @@ class GooglePlugin(Plugin):
         else:
             for title, url, content in results:
                 event.reply(u"\"%s\" %s - %s" % (title, url, content))
+
+    def on_cmd_google_shortener(self, event):
+        if not event.text: return
+        result = shorten_url(self.head.config.googleapi, event.text)
+        if result:
+            long_url, short_url = result
+            event.reply(u"%s -> %s" % (long_url, short_url))
+        else:
+            event.reply(u"Non ho shortato, me so' shittato addosso instead.")
 
 if __name__ == '__main__':
     import sys
