@@ -1,25 +1,34 @@
-import os, re, sys
-import pickle
+import os, re
 import codecs
 from collections import defaultdict
 import time, datetime
 import logging
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 import gevent
 from gevent import socket
 from gevent.pool import Pool
 from gevent.core import timer
-import gevent.queue
-
+from gevent.queue import Queue
 import feedparser
+
 from pinolo.plugins import Plugin
 from pinolo.utils import md5, gevent_HTTPHandler
+
+from pinolo import USER_AGENT
+feedparser.USER_AGENT = USER_AGENT
 
 
 HTTP_GET_TIMEOUT = float(60 * 2)
 POOL_SIZE = 5
 RSS_CRONTAB = float(60 * 10) # 10 min
 # RSS_CRONTAB = float(10) # 10 sec / DEBUG
+CACHE_FILE = "rss.cache"
+SEEN_FILE = "rss.seen"
+FEED_LIST_FILE = "rss.txt"
 logger = logging.getLogger('pinolo.plugins.rss')
 
 
@@ -28,22 +37,22 @@ def title_from_url(url):
     if match:
         return match.group(1).encode('utf-8', 'replace')
     else:
-        return None
+        raise RuntimeError("Invalid URL: %r" % (url,))
 
 def the_fucking_date(entry):
-    for key in ('updated_parsed', 'published_parsed'):
+    for key in ('updated_parsed', 'published_parsed', 'created_parsed'):
         if entry.has_key(key):
             return entry[key]
     return time.time()
 
 
 class RSSPlugin(Plugin):
-    def __init__(self, head):
-        super(RSSPlugin, self).__init__(head)
+    def __init__(self, *args, **kwargs):
+        super(RSSPlugin, self).__init__(*args, **kwargs)
         self.pool = Pool(POOL_SIZE)
-        self.feed_file = os.path.join(self.head.config.datadir, "rss.txt")
-        self.cache_file = os.path.join(self.head.config.datadir, "rss.cache")
-        self.seen_file = os.path.join(self.head.config.datadir, "rss.seen")
+        self.feed_file = os.path.join(self.head.config.datadir, FEED_LIST_FILE)
+        self.cache_file = os.path.join(self.head.config.datadir, CACHE_FILE)
+        self.seen_file = os.path.join(self.head.config.datadir, SEEN_FILE)
         self.feed_list = []
         self.feeds = {}
         self.seen_list = defaultdict(list)
@@ -79,8 +88,11 @@ class RSSPlugin(Plugin):
         """
         Fetcha tutti i feed configurati con un pool di worker.
         """
-        for feed in self.feed_list:
-            self.pool.spawn(self.parse_feed, feed)
+        for url in self.feed_list:
+            name = title_from_url(url)
+            logger.debug("Spawning greenlet for %s: %s" % (name, url))
+            self.pool.spawn(self.parse_feed, url, name)
+        logger.debug("Waiting for Pool() completion")
         self.pool.join()
         self.write_cache()
 
@@ -89,33 +101,31 @@ class RSSPlugin(Plugin):
         Fetcha un feed RSS usando sia `etag` che `HTTP Last-Modified`, con un timeout.
         """
         logger.debug(u"Fetching %s" % (url,))
-        result = None
         with gevent.Timeout(HTTP_GET_TIMEOUT, False):
-            result = feedparser.parse(url, handlers=[gevent_HTTPHandler],
-                                      etag=etag, modified=modified)
-        return result
+            return feedparser.parse(url, handlers=[gevent_HTTPHandler], etag=etag,
+                                    modified=modified)
+        return None
 
-    def parse_feed(self, url):
+    def parse_feed(self, url, name):
         """
         Scarica e parsa un feed RSS e lo inserisce nella cache.
         """
-        title = title_from_url(url)
-        # ERRORE
-        if title is None:
-            return
-        cache = self.feeds.get(title, None)
+        cache = self.feeds.get(name, None)
         if cache is not None:
             etag = cache.get('etag', None)
             modified = cache.get('modified', None)
-            feed = self.get_feed(url, etag, modified)
         else:
-            feed = self.get_feed(url)
+            etag, modified = (None, None)
+        feed = self.get_feed(url, etag, modified)
 
-        if cache is None:
-            self.feeds[title] = feed
+        if feed is not None:
+            status = feed.get('status', 200) # XXX
+            if status != 304:
+                self.feeds[name] = feed
+            else:
+                logger.debug("Feed %s already cached" % (name,))
         else:
-            if (feed is not None and feed.status != 304):
-                self.feeds[title] = feed
+            logger.warning("Timeout for feed %s (%s)" % (name, url))
 
     def print_feeds(self):
         # published_parsed = time.struct_time, e puo' non esserci.
@@ -179,6 +189,9 @@ class RSSPlugin(Plugin):
         return False
 
     def format_entry(self, entry):
+        """
+        Estrae titolo e URL da un feed e ritorna una stringa unicode.
+        """
         title = entry.get('title', u'')
         link = entry.get('link', u'')
         return u"%s - %s" % (title, link)
@@ -210,11 +223,11 @@ class RSSPlugin(Plugin):
     def load_cache(self):
         self.load_pickle_data(self.cache_file, self.feeds)
 
-    def load_seen_file(self):
-        self.load_pickle_data(self.seen_file, self.seen_list)
-
     def write_seen_file(self):
         self.write_pickle_data(self.seen_file, self.seen_list)
+
+    def load_seen_file(self):
+        self.load_pickle_data(self.seen_file, self.seen_list)
 
     def load_rss_file(self):
         """

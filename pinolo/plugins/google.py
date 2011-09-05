@@ -1,16 +1,12 @@
 # -*- coding: utf-8 -*-
 
-# import gevent
-# from gevent import monkey
-# monkey.patch_all()
-
 import re
 import htmlentitydefs
 import json
 import urllib, urllib2
-
 import httplib
 
+from pinolo import USER_AGENT
 from pinolo.plugins import Plugin
 from pinolo.utils import gevent_HTTPConnection, gevent_HTTPHandler
 
@@ -49,26 +45,12 @@ def strip_html(text):
         return text # leave as is
     return re.sub("(?s)<[^>]*>|&#?\w+;", fixup, text)
 
-# class gevent_HTTPConnection(httplib.HTTPConnection):
-#     """
-#     Per evitare monkey.patch_all():
-#     http://groups.google.com/group/gevent/browse_thread/thread/c20181cb066ee97e?fwc=2&pli=1
-#     """
-#     def connect(self):
-#         # if self.timeout is socket._GLOBAL_DEFAULT_TIMEOUT:
-#         #     timeout = cosocket._GLOBAL_DEFAULT_TIMEOUT
-#         # else:
-#         #     timeout = self.timeout
-#         self.sock = cosocket.create_connection((self.host, self.port), self.timeout)
-
-# class gevent_HTTPHandler(urllib2.HTTPHandler):
-#     def http_open(self, request):
-#         return self.do_open(gevent_HTTPConnection, request)
-
 def gevent_url_fetch(url):
+    request = urllib2.Request(url)
+    request.add_header('User-Agent', USER_AGENT)
     opener = urllib2.build_opener(gevent_HTTPHandler)
-    resp = opener.open(url)
-    return resp.headers, resp
+    response = opener.open(request)
+    return response
 
 def parse_result(result):
     title = strip_html(result['titleNoFormatting'])
@@ -84,7 +66,9 @@ def search_google(query_string):
     })
 
     url = SEARCH_URL + "&" + query
-    headers, response = gevent_url_fetch(url)
+    response = gevent_url_fetch(url)
+
+    headers = response.headers
     encoding = headers['content-type'].split('charset=')[-1]
     data = unicode(response.read(), encoding)
     json_data = json.loads(data)
