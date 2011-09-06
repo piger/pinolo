@@ -11,6 +11,11 @@ import os, sys, re
 import random
 import codecs
 
+import logging
+from pinolo.plugins import Plugin
+from pinolo.plugins.quotes import Quote
+logger = logging.getLogger('pinolo.plugins.markov')
+
 
 PROPOSITION_SEPARATOR = r'[,:;]'
 SENTENCE_TERMINATOR = r'[?!.]'
@@ -128,7 +133,10 @@ class MarkovGenerator(object):
         sentence = []
         while not sentence or not sentence[-1].end:
             context = tuple(sequence)
-            next_dict = self.tokens[context]
+            # next_dict = self.tokens[context]
+            next_dict = self.tokens.get(context, None)
+            if next_dict is None:
+                break
             total = sum(next_dict.itervalues())
             select = random.randint(1, total+1)
 
@@ -168,6 +176,7 @@ class MarkovPlugin(Plugin):
         self.markov.load(self.brainfile)
 
     def save_brain(self):
+        logger.info(u"Saving markov brain")
         self.markov.save(self.brainfile)
 
     def on_PRIVMSG(self, event):
@@ -177,7 +186,7 @@ class MarkovPlugin(Plugin):
         if event.text.startswith(event.client.current_nickname):
             reply = self.markov.say()
             if reply:
-                event.reply(reply)
+                event.reply(u"[markov: %s]" % reply)
         else:
             self.markov.learn(event.text)
             self._savelimit += 1
