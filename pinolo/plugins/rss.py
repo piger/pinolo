@@ -66,6 +66,9 @@ class RSSPlugin(Plugin):
         - carica la cache (parsata) dei feed.
         """
         self.load_rss_file()
+        if len(self.feed_list) == 0:
+            return # no work to do
+
         self.load_seen_file()
         self.load_cache()
 
@@ -237,7 +240,7 @@ class RSSPlugin(Plugin):
             with codecs.open(self.feed_file, 'r', encoding='utf-8') as fd:
                 feeds = fd.readlines()
                 feeds = [x.strip() for x in feeds]
+                feeds = [x for x in feeds if (x and not x.startswith('#'))]
                 self.feed_list = feeds[:]
-                # self.feed_list.extend(feeds)
         except IOError, e:
-            raise
+            return
