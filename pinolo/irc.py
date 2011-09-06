@@ -272,6 +272,8 @@ class IRCClient(object):
                 try:
                     f(event)
                 except LastEvent:
+                    self.logger.debug(u"LastEvent for %s from %r" % (event_name,
+                                                                     f))
                     break
 
     def send_cmd(self, cmd):
