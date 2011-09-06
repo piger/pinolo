@@ -18,7 +18,7 @@ from gevent.queue import Queue
 
 import pinolo.plugins
 from pinolo import FULL_VERSION, EOF_RECONNECT_TIME, FAILED_CONNECTION_RECONNECT_TIME
-from pinolo import CONNECTION_TIMEOUT, PING_DELAY
+from pinolo import CONNECTION_TIMEOUT, PING_DELAY, THROTTLE_TIME, THROTTLE_INCREASE
 from pinolo.database import init_db
 from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
@@ -117,7 +117,7 @@ class IRCClient(object):
         self.oqueue = Queue()
         self.socket = None
         self.stream = None
-        self.throttle_out = 0.5
+        self.throttle_out = THROTTLE_TIME
         self._last_write_time = 0
         self.logger = logging.getLogger('pinolo.irc.' + self.name)
         self.running = False
@@ -393,6 +393,12 @@ class IRCClient(object):
             self.ctcp_ping(self.current_nickname)
             self.ciclo_pingo()
 
+    def increase_throttle(self):
+        old_value = self.throttle_out
+        self.throttle_out += THROTTLE_INCREASE
+        self.logger.warning(u"Increasing throttle: %f -> %f" % (old_value,
+                                                                self.throttle_out))
+
 
     # EVENTS ################################################################################
 
@@ -447,8 +453,21 @@ class IRCClient(object):
         self.join(channel)
 
     def on_ERROR(self, event):
+        """
+        2011-09-05 10:51:14,156 pinolo.irc.azzurra WARNING ERROR from server: :Closing Link: my.hostname.net (Excess Flood)
+        """
         # skip if it's our /quit command
         if '(Quit:' in event.argstr: return
+        match = re.search(r"\(([^)]+)\)", event.argstr)
+        if match:
+            reason = match.group(1)
+            reason = reason.lower()
+        else:
+            reason = u""
+
+        if reason == u"excess flood":
+            self.logger.warning("ERROR: Excess Flood from server!")
+            self.increase_throttle()
         self.logger.warning("ERROR from server: %s" % event.argstr)
 
     def on_cmd_quit(self, event):
