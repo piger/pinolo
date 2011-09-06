@@ -1,3 +1,26 @@
+"""
+BUG:
+
+2011-09-06 12:41:48,256 pinolo.head INFO Importing plugin: pinolo.plugins.rss
+Traceback (most recent call last):
+  File "/home/sand/pinolo/env/bin/pinolo", line 9, in <module>
+    load_entry_point('pinolo==0.1', 'console_scripts', 'pinolo')()
+  File "/home/sand/pinolo_git/pinolo/main.py", line 32, in main
+    head = BigHead(config)
+  File "/home/sand/pinolo_git/pinolo/irc.py", line 523, in __init__
+    self.activate_plugins()
+  File "/home/sand/pinolo_git/pinolo/irc.py", line 553, in activate_plugins
+    plugin.activate()
+  File "/home/sand/pinolo_git/pinolo/plugins/rss.py", line 73, in activate
+    self.load_cache()
+  File "/home/sand/pinolo_git/pinolo/plugins/rss.py", line 227, in load_cache
+    self.load_pickle_data(self.cache_file, self.feeds)
+  File "/home/sand/pinolo_git/pinolo/plugins/rss.py", line 216, in load_pickle_data
+    data = pickle.load(fd)
+TypeError: ('__init__() takes exactly 4 arguments (2 given)', <class 'xml.sax._exceptions.SAXParseException'>, ('unclosed CDATA section',))
+
+"""
+
 import os, re
 import codecs
 from collections import defaultdict
