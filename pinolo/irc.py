@@ -472,7 +472,7 @@ class IRCClient(object):
         if reason == u"excess flood":
             self.logger.warning("ERROR: Excess Flood from server!")
             self.increase_throttle()
-        self.logger.warning("ERROR from server: %s" % event.argstr)
+        self.logger.warning(u"ERROR from server: %s" % event.argstr)
 
     def on_cmd_quit(self, event):
         if event.user.nickname == u'sand':
