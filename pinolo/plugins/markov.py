@@ -196,7 +196,8 @@ class MarkovPlugin(Plugin):
             text = re.sub(r"^%s[:,]?\s+" % event.client.current_nickname,
                           u"", event.text)
             # prima impara, poi risponde
-            self.markov.learn(text)
+            # E INVECE QUESTA COSA E' DANNOSA!
+            # self.markov.learn(text)
             reply = self.markov.say(text)
             if reply:
                 event.reply(reply)
