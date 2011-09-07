@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # http://code.google.com/p/kartoffelsalad/source/browse/trunk/lib/markov.py?r=9
 
-import collections
+from collections import defaultdict, deque
 try:
     import cPickle as pickle
 except ImportError:
@@ -14,128 +14,133 @@ import codecs
 import logging
 from pinolo.plugins import Plugin
 from pinolo.plugins.quotes import Quote
+from pinolo.casuale import get_random_reply
 logger = logging.getLogger('pinolo.plugins.markov')
 
-
-PROPOSITION_SEPARATOR = r'[,:;]'
-SENTENCE_TERMINATOR = r'[?!.]'
-SMILEY = r"[:;8=][o\-']?[()\[\]/\\\?pPdD*$]+"
-URL = r"\b\w+://\S*\b"
-
-PROPOSITION_SEPARATOR_RE = re.compile(
-    r'(?x)' + PROPOSITION_SEPARATOR, re.UNICODE)
-SENTENCE_TERMINATOR_RE = re.compile(r'(?x)' + SENTENCE_TERMINATOR,
-                                    re.UNICODE)
-SPLIT_RE = re.compile(r'''(?x)
-(
-	%s | # An URL
-        %s | # A Smiley
-        %s | # Separators
-        [()] | # Parenthesis
-        %s | # foo
-        \s+ | # white spaces
-)''' % (URL, SMILEY, PROPOSITION_SEPARATOR, SENTENCE_TERMINATOR),
-                      re.UNICODE)
-
-
-class MarkovToken(object):
-    def __init__(self, token):
-        self.token = token
-        if PROPOSITION_SEPARATOR_RE.match(token):
-            self.space_before, self.end = False, False
-        elif SENTENCE_TERMINATOR_RE.match(token):
-            self.space_before, self.end = False, True
-        else:
-            self.space_before, self.end = True, False
-
-    def output(self):
-        if self.space_before:
-            return [' ', self.token]
-        else:
-            return [self.token]
-
-    def __str__(self):
-        return self.token
-
-    def __repr__(self):
-        return "<token '%s'>" % self.token
-
-    def __eq__(self, other):
-        return (self.token == other.token and
-                self.end == other.end and
-                self.space_before == other.space_before)
-
-    def __ne__(self, other):
-        return not (self == other)
-
-    def __hash__(self):
-        return (hash(self.token) ^
-                (hash(self.end) << 2) ^
-                (hash(self.space_before) << 3))
+cleanups = [
+    # nick: testo
+    re.compile(r"^[^:]+:", re.UNICODE),
+    # URL
+    re.compile(r'''(?x)
+    (?:
+    \b\w+://\S+\b
+    |
+    (?:\w|\.)+
+    \.\w{2,3}
+    \/
+    \S+
+    \b)
+    ''', re.UNICODE),
+    # simboli
+    re.compile(r"[\[\]\(\):;\"#]", re.UNICODE),
+    # white space squeeze
+    re.compile(r"\s{2,}", re.UNICODE),
+]
 
 
-class MarkovTokenFactory(object):
-    def __init__(self):
+class Markov(object):
+    def __init__(self, n=2):
+        self.n = n
+        # self.tokens = defaultdict(lambda :defaultdict(int))
         self.tokens = {}
-        self.cnt = {}
-
-    def __call__(self, s):
-        self.cnt[s] = self.cnt.get(s, 0) + 1
-        if s in self.tokens:
-            return self.tokens[s]
-        else:
-            tok = MarkovToken(s)
-            self.tokens[s] = tok
-            return tok
-
-
-class MarkovGenerator(object):
-    def __init__(self, context=2):
-        self.tokens = {}
-        self.context = context
-        self.factory = MarkovTokenFactory()
+        self.keywords = defaultdict(set)
 
     def lex(self, sentence):
         """
-        Splitta la frase
+        splitta per whitespace, toglie elementi vuoti.
         """
-        return [self.factory(x.strip()) for x
-                in SPLIT_RE.split(sentence) if x.strip()]
+        words = [w.strip() for w in sentence.split()]
+        words = [w for w in words if w]
+        return words
+
+    def cleanup(self, sentence):
+        """
+        toglie merda e IRC
+        """
+        for repl in cleanups:
+            sentence = repl.sub(u"", sentence)
+
+        return sentence
 
     def markov_sequence(self, tokens, context):
-        sequence = collections.deque((None,) * context)
-        for token in tokens:
+        """
+        yielda (context), next_word
+
+        (None, None) ciao
+        (None, 'ciao') come
+        ('ciao', 'come') stai
+        ('come', 'stai') vaffanculo
+        ('stai', 'vaffanculo') porcodio
+        """
+        # sequence = deque((None,) * context)
+        sequence = deque(tuple(tokens[:context]))
+
+        for token in tokens[context:]:
             yield tuple(sequence), token
-            if token.end:
-                sequence = collections.deque((None,) * context)
-            else:
-                sequence.popleft()
-                sequence.append(token)
+            sequence.popleft()
+            sequence.append(token)
 
     def learn(self, sentence):
+        sentence = self.cleanup(sentence)
+        if sentence is None:
+            return
         tokens = self.lex(sentence)
-        if len(tokens) < 4:
-            return # !!!
-        tokens[-1].end = True
+        if len(tokens) < (self.n + 1):
+            return
 
-        for context, next_word in self.markov_sequence(tokens, self.context):
-            weight = self.tokens.setdefault(context, {}).setdefault(next_word, 0)
-            self.tokens[context][next_word] = weight+1
+        for context, next_word in self.markov_sequence(tokens, self.n):
+            if context not in self.tokens:
+                self.tokens[context] = {}
+                self.learn_keywords(context)
+            weight = self.tokens[context].get(next_word, 0)
+            self.tokens[context][next_word] = (weight + 1)
+            # self.tokens[context][next_word] += 1
 
-    def say(self, start_word=None):
-        sequence = collections.deque((None,) * self.context)
-        if start_word:
-            sequence.popleft()
-            sequence.append(start_word)
-            if tuple(sequence) not in self.tokens:
-                return None
+    def calc_keywords(self):
+        for wp in self.tokens.keys():
+            self.learn_keywords(wp)
 
-        sentence = []
-        while not sentence or not sentence[-1].end:
+    def learn_keywords(self, wp):
+        for w in wp:
+            self.keywords[w].add(wp)
+
+    def find_keyword(self, words):
+        for kw in words:
+            if kw in self.keywords:
+                return random.choice(list(self.keywords[kw]))
+
+    def get_seed(self, words):
+        random.shuffle(words)
+        if words:
+            seed = self.find_keyword(words)
+            if seed:
+                return seed
+        return None
+
+    def say(self, msg=None, max_words=50):
+        if not self.tokens.keys():
+            return None
+        seed = None
+        if msg:
+            sample_words = msg.split()
+            seed = self.get_seed(sample_words)
+
+        if seed is None:
+            starter = random.choice(self.tokens.keys())
+            sequence = deque(tuple(starter))
+            sentence = list(starter)
+        else:
+            print "uso seme!"
+            sequence = deque(seed)
+            sentence = list(seed)
+        # sequence = deque((None,) * self.n)
+        # sentence = []
+
+        for i in xrange(max_words):
             context = tuple(sequence)
-            # next_dict = self.tokens[context]
-            next_dict = self.tokens.get(context, None)
-            if next_dict is None:
+            try:
+                next_dict = self.tokens[context]
+            except KeyError:
                 break
             total = sum(next_dict.itervalues())
             select = random.randint(1, total+1)
@@ -147,11 +152,15 @@ class MarkovGenerator(object):
                     sequence.popleft()
                     sequence.append(next_word)
                     break
-        return ''.join([''.join(x.output()) for x in sentence])
+
+            if sentence[-1].endswith("."):
+                break
+
+        return u' '.join(sentence)
 
     def save(self, filename):
         f = gzip.GzipFile(filename, 'wb')
-        data_to_save = (self.context, self.factory, self.tokens)
+        data_to_save = (self.tokens, self.keywords)
         pickle.dump(data_to_save, f, -1)
         f.close()
 
@@ -160,7 +169,7 @@ class MarkovGenerator(object):
             f = gzip.GzipFile(filename, 'rb')
         except IOError:
             return
-        (self.context, self.factory, self.tokens) = pickle.load(f)
+        (self.tokens, self.keywords) = pickle.load(f)
         f.close()
 
 
@@ -169,7 +178,7 @@ class MarkovPlugin(Plugin):
         super(MarkovPlugin, self).__init__(*args, **kwargs)
         self.brainfile = os.path.join(self.head.config.datadir, 'markovdb.pickle')
         self.n = 2
-        self.markov = MarkovGenerator(self.n)
+        self.markov = Markov(self.n)
         self._savelimit = 0
 
     def activate(self):
@@ -184,9 +193,13 @@ class MarkovPlugin(Plugin):
         if not event.text: return
 
         if event.text.startswith(event.client.current_nickname):
-            reply = self.markov.say()
+            text = re.sub(r"^%s[:,]?\s+" % event.client.current_nickname,
+                          u"", event.text)
+            reply = self.markov.say(text)
             if reply:
-                event.reply(u"[markov: %s]" % reply)
+                event.reply(reply)
+            else:
+                event.reply(get_random_reply())
         else:
             self.markov.learn(event.text)
             self._savelimit += 1

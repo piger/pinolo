@@ -433,8 +433,8 @@ class IRCClient(object):
         target = event.args[0]
         private = target == self.current_nickname
 
-        if event.text.startswith(self.current_nickname) or private:
-            event.reply(get_random_reply())
+        # if event.text.startswith(self.current_nickname) or private:
+        #     event.reply(get_random_reply())
 
     def on_CTCP_PING(self, event):
         if event.user.nickname != self.current_nickname:
