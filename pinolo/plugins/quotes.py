@@ -176,7 +176,7 @@ class QuotesPlugin(Plugin):
             return
 
         event.reply(u"ho trovato %i %s:" % (num_results,
-                                            "faccenda" if num_results == 1 else "faccende"))
+                                            u"faccenda" if num_results == 1 else u"faccende"))
 
         for match in matches:
             text = unicode(match.document.get_data(), 'utf-8', 'replace')

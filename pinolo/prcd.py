@@ -28,6 +28,7 @@ def read_prcd_files():
     logger.debug("Reading PRCD files")
     for filename in PRCD_FILES:
         category = filename[filename.index('_')+1:filename.index('.')]
+        category = unicode(category, 'utf-8', 'replace')
         # fd = pkg_resources.resource_stream(__name__, "data/prcd/%s" % filename)
         path = pkg_resources.resource_filename(__name__, "data/prcd/%s" % filename)
         fd = codecs.open(path, encoding='utf-8')

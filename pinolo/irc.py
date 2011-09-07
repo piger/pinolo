@@ -87,7 +87,7 @@ class IRCEvent(object):
         assert type(self.user.nickname is unicode)
 
         recipient = self.args[0]
-        if recipient.startswith('#'):
+        if recipient.startswith(u'#'):
             if prefix:
                 message = u"%s: %s" % (self.user.nickname, message)
             self.client.msg(recipient, message)
@@ -159,7 +159,7 @@ class IRCClient(object):
             self.socket = ssl.wrap_socket(self.socket)
         self.stream = self.socket.makefile()
         self.socket.connect((self.config.address, self.config.port))
-        print u"[*] Connected to: %s:%d (%s)" % (self.config.address, self.config.port,
+        print "[*] Connected to: %s:%d (%s)" % (self.config.address, self.config.port,
                                                 self.name)
 
     def login_to_server(self):
@@ -213,6 +213,7 @@ class IRCClient(object):
             # Parsa il `command` e i suoi `argstr`; in caso di CTCP o !comando
             # cambia `command` adeguatamente.
             command, line = line.split(u' ', 1)
+            command = command.encode('utf-8', 'replace')
             if u' :' in line:
                 argstr, text = line.split(u' :', 1)
 
@@ -227,10 +228,10 @@ class IRCClient(object):
                         command, argstr = text, u''
                     text = u''
 
-                    if old_command == u"PRIVMSG":
-                        command = u"CTCP_" + command
+                    if old_command == "PRIVMSG":
+                        command = "CTCP_" + command
                     else:
-                        command = u"CTCP_REPLY_" + command
+                        command = "CTCP_REPLY_" + command
 
                 # E' un "comando" del Bot
                 elif text.startswith(u'!'):
@@ -238,9 +239,11 @@ class IRCClient(object):
                         command, text = text[1:].split(u' ', 1)
                     except ValueError:
                         command, text = text[1:], u''
+                    finally:
+                        command = command.encode('utf-8', 'replace')
 
                     # Espande il comando con gli alias
-                    command = u"cmd_" + COMMAND_ALIASES.get(command, command)
+                    command = "cmd_" + COMMAND_ALIASES.get(command, command)
             else:
                 argstr, text = line, u''
 
@@ -248,8 +251,7 @@ class IRCClient(object):
             user = IRCUser(ident, hostname, nickname)
             event = IRCEvent(self, user, command, argstr, args, text)
 
-            event_name = u'on_%s' % command
-            event_name = event_name.encode('utf-8', 'replace')
+            event_name = 'on_%s' % command
             self.logger.debug("looking for event %s" % (event_name,))
             self.dispatch_event(event_name, event)
 
@@ -273,8 +275,7 @@ class IRCClient(object):
                 try:
                     f(event)
                 except LastEvent:
-                    self.logger.debug(u"LastEvent for %s from %r" % (event_name,
-                                                                     f))
+                    self.logger.debug("LastEvent for %s from %r" % (event_name, f))
                     break
 
     def send_cmd(self, cmd):
@@ -318,7 +319,7 @@ class IRCClient(object):
     def join(self, channel):
         self.logger.info(u"Joining %s" % channel)
         self.send_cmd(u"JOIN %s" % channel)
-        self.me(channel, "saluta tutti")
+        self.me(channel, u"saluta tutti")
 
     def quit(self, message="Bye"):
         self.logger.info(u"QUIT requested")
@@ -554,7 +555,7 @@ class BigHead(object):
             plugin.activate()
 
     def run(self):
-        print u"[*] Starting %s" % FULL_VERSION
+        print "[*] Starting %s" % FULL_VERSION
         jobs = []
 
         for name, server in self.config.servers.iteritems():

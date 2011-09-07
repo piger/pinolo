@@ -17,6 +17,11 @@ class Config(object):
                                     ', '.join(["%s = %r" % (name, value)
                                                for name, value in self.__dict__.iteritems()]))
 
+def unicode_or_None(obj):
+    if type(obj) is str:
+        return unicode(obj, 'utf-8', 'replace')
+    else:
+        return obj
 
 def read_config_files(filenames):
     cfp = SafeConfigParser()
@@ -90,11 +95,11 @@ class NewConfig(object): pass
 
 class GeneralConfig(NewConfig):
     def __init__(self, nickname, ident, realname, datadir, googleapi=None):
-        self.nickname = nickname
-        self.ident = ident
-        self.realname = realname
+        self.nickname = unicode_or_None(nickname)
+        self.ident = unicode_or_None(ident)
+        self.realname = unicode_or_None(realname)
         self.datadir = datadir
-        self.googleapi = googleapi
+        self.googleapi = unicode_or_None(googleapi)
 
         self.servers = {}
 
@@ -110,9 +115,13 @@ class ServerConfig(NewConfig):
             self.channels = [channels]
         else:
             self.channels = []
-        self.nickserv = nickserv
-        self.password = password
-        self.nickname = nickname
+        self.channels = [unicode(c, 'utf-8', 'replace') for c in self.channels]
+
+        self.nickserv = unicode_or_None(nickserv)
+        self.password = unicode_or_None(password)
+        self.nickname = unicode_or_None(nickname)
+
+
 
 def database_filename(datadir):
     return "sqlite:///" + os.path.join(datadir, DEFAULT_DATABASE_FILENAME)
