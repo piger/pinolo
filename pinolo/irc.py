@@ -201,7 +201,7 @@ class IRCClient(object):
 
             if line == '': break # EOF
             line = decode_text(line.strip())
-            self.logger.debug(u"IN: %r" % line)
+            self.logger.debug(u"IN: %s" % line)
 
             if line.startswith(u':'):
                 source, line = line[1:].split(u' ', 1)
@@ -249,7 +249,8 @@ class IRCClient(object):
             event = IRCEvent(self, user, command, argstr, args, text)
 
             event_name = u'on_%s' % command
-            self.logger.debug(u"looking for event %r" % (event_name,))
+            event_name = event_name.encode('utf-8', 'replace')
+            self.logger.debug("looking for event %s" % (event_name,))
             self.dispatch_event(event_name, event)
 
 

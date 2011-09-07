@@ -11,7 +11,7 @@ def read_replies_file(filename):
     replies = []
     for line in fd:
         line = line.strip()
-        if line and not line.startswith('#'):
+        if line and not line.startswith(u'#'):
             replies.append(line)
     fd.close()
     return replies
