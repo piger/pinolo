@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # http://code.google.com/p/kartoffelsalad/source/browse/trunk/lib/markov.py?r=9
+# TODO:
+# CALCOLO KEYWORD ALL'AVVIO
+# STOPWORDS
 
 from collections import defaultdict, deque
 try:
@@ -10,12 +13,16 @@ import gzip
 import os, sys, re
 import random
 import codecs
+import pkg_resources
 
 import logging
 from pinolo.plugins import Plugin
 from pinolo.plugins.quotes import Quote
 from pinolo.casuale import get_random_reply
 logger = logging.getLogger('pinolo.plugins.markov')
+
+STOPWORDS_FILE = pkg_resources.resource_filename(__name__,
+                                                 "stopwords.it.txt")
 
 cleanups = [
     # nick: testo
@@ -37,6 +44,18 @@ cleanups = [
     re.compile(r"\s{2,}", re.UNICODE),
 ]
 
+def read_stopwords(filename):
+    stopwords = []
+    with codecs.open(filename, 'r', encoding='iso-8859-15') as fd:
+        for line in fd:
+            line = line.strip()
+            if not line or line.startswith(u"|"):
+                continue
+            match = re.match(r"(\w+)\b", line, re.UNICODE)
+            if match:
+                stopwords.append(match.group(1))
+    return stopwords
+
 
 class Markov(object):
     def __init__(self, n=2):
@@ -44,6 +63,7 @@ class Markov(object):
         # self.tokens = defaultdict(lambda :defaultdict(int))
         self.tokens = {}
         self.keywords = defaultdict(set)
+        self.stopwords = read_stopwords(STOPWORDS_FILE)
 
     def lex(self, sentence):
         """
@@ -52,6 +72,11 @@ class Markov(object):
         words = [w.strip() for w in sentence.split()]
         words = [w for w in words if w]
         return words
+
+    def remove_stopwords(self, sentence):
+        w = [x for x in sentence.split()
+             if x.lower() not in self.stopwords]
+        return u" ".join(w)
 
     def cleanup(self, sentence):
         """
@@ -102,6 +127,9 @@ class Markov(object):
 
     def learn_keywords(self, wp):
         for w in wp:
+            w = w.lower()
+            if w in self.stopwords:
+                continue
             self.keywords[w].add(wp)
 
     def find_keyword(self, words):
@@ -110,6 +138,7 @@ class Markov(object):
                 return random.choice(list(self.keywords[kw]))
 
     def get_seed(self, words):
+        words = [w for w in words if w not in self.stopwords]
         random.shuffle(words)
         if words:
             seed = self.find_keyword(words)
