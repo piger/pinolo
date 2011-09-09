@@ -229,7 +229,7 @@ class MarkovPlugin(Plugin):
             # self.markov.learn(text)
             reply = self.markov.say(text)
             if reply:
-                event.reply(reply)
+                event.reply(reply, prefix=False)
             else:
                 event.reply(get_random_reply())
         else:
