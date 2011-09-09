@@ -520,6 +520,7 @@ class BigHead(object):
         self.load_plugins()
         self.start_plugins()
         # init_db() va DOPO start_plugins() per creare eventuali tabelle del DB.
+        # in realta' va DOPO l'import. XXX
         init_db(self.db_uri)
         self.activate_plugins()
 
@@ -579,6 +580,5 @@ class BigHead(object):
         try:
             gevent.joinall(jobs)
         except KeyboardInterrupt:
-            for connection in self.connections.values():
-                connection.quit(u"keyboard-interrupt")
+            self.shutdown(u"keyboard-interrupt")
             gevent.joinall(jobs)
