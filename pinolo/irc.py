@@ -478,8 +478,7 @@ class IRCClient(object):
         if event.user.nickname == u'sand':
             reason = get_random_quit() if event.text == '' else event.text
             self.logger.warning(u"Global quit from %s (%s)" % (event.user.nickname, reason))
-            for client in self.head.connections.values():
-                client.quit(reason)
+            self.head.shutdown(reason)
 
     def on_cmd_prcd(self, event):
         cat, moccolo = moccolo_random(event.text or None)
@@ -551,8 +550,20 @@ class BigHead(object):
             COMMAND_ALIASES.update(PluginClass.COMMAND_ALIASES.items())
 
     def activate_plugins(self):
+        self.logger.debug(u"Activating plugins")
         for plugin in self.plugins:
             plugin.activate()
+
+    def deactivate_plugins(self):
+        self.logger.debug(u"Deactivating plugins")
+        for plugin in self.plugins:
+            plugin.deactivate()
+
+    def shutdown(self, reason=u"quit"):
+        self.logger.warning(u"Global shutdown")
+        self.deactivate_plugins()
+        for client in self.connections.values():
+            client.quit(reason)
 
     def run(self):
         print "[*] Starting %s" % FULL_VERSION
