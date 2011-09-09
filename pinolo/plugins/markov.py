@@ -221,7 +221,7 @@ class MarkovPlugin(Plugin):
         self.save_brain()
 
     def save_brain(self):
-        logger.info(u"Saving markov brain")
+        logger.debug(u"Saving markov brain")
         self.markov.save(self.brainfile)
 
     def on_PRIVMSG(self, event):
