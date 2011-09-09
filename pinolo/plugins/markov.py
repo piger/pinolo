@@ -125,6 +125,10 @@ class Markov(object):
         for wp in self.tokens.keys():
             self.learn_keywords(wp)
 
+    def redo_keywords(self):
+        self.keywords = defaultdict(set)
+        self.calc_keywords()
+
     def learn_keywords(self, wp):
         for w in wp:
             w = w.lower()
@@ -213,6 +217,9 @@ class MarkovPlugin(Plugin):
     def activate(self):
         self.markov.load(self.brainfile)
 
+    def deactivate(self):
+        self.save_brain()
+
     def save_brain(self):
         logger.info(u"Saving markov brain")
         self.markov.save(self.brainfile)
@@ -242,6 +249,11 @@ class MarkovPlugin(Plugin):
     def on_cmd_savemarkov(self, event):
         if event.user.nickname == u"sand":
             self.save_brain()
+
+    def on_cmd_redokeywords(self, event):
+        if event.user.nickname == u"sand":
+            self.markov.redo_keywords()
+            event.reply(u"done")
 
 if __name__ == "__main__":
     import sys
