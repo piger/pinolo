@@ -65,6 +65,7 @@ class QuotesPlugin(Plugin):
         'addq': 'addquote',
         'q': 'quote',
         'qq': 'search',
+        'z': 'sqlsearch',
     }
 
     def __init__(self, head):
@@ -160,7 +161,7 @@ class QuotesPlugin(Plugin):
         limit = 5
 
         if not event.text:
-            event.reply(u"Eh si, cerco stocazzo.")
+            event.reply(u"Eh si', cerco stocazzo.")
             return
 
         query = self.xap_qp.parse_query(event.text.encode('utf-8'),
@@ -183,3 +184,16 @@ class QuotesPlugin(Plugin):
             id = match.document.get_value(xapian_quote_id)
             id = int(id)
             event.reply(u"%i: %i%% %i, %s" % (match.rank + 1, match.percent, id, text))
+
+    def on_cmd_sqlsearch(self, event):
+        limit = 5
+
+        if not event.text:
+            event.reply(u"Eh si', cerco la puttana di tua mamma")
+            return
+
+        query = Quote.query.filter(Quote.quote.contains(event.text))
+
+        for result in query[:limit]:
+            event.reply(u"%d: %s" % (result.id, result.quote))
+
