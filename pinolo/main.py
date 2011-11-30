@@ -4,38 +4,43 @@
 import warnings
 warnings.simplefilter('default')
 
+import sys
 import logging
 logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s %(name)s %(levelname)s %(message)s")
+                    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+                    datefmt="%H:%M:%S %d/%m/%y")
 logger = logging.getLogger('pinolo')
 
-import optparse
+from pinolo.options import Options
 from pinolo.config import read_config_files
 from pinolo.irc import BigHead
 from pinolo import FULL_VERSION
 
+optspec = """
+pinolo [options]
+--
+c,config=   Read configuration options from file.
+d,debug     Enable debugging messages.
+unaz        Load 'unicode-nazi' library to debug unicode errors.
+"""
+header = "%s, the naughty chat bot." % FULL_VERSION
+
 def main():
-    parser = optparse.OptionParser(description="%s: "
-                                   "the naughthy chat bot." % FULL_VERSION,
-                                   version=FULL_VERSION)
-    parser.add_option('--config',
-                      help="Path to the configuration file")
-    parser.add_option('--debug', action="store_true",
-                      help="Set log level to DEBUG")
-    parser.add_option('--unicode_nazi', action="store_true",
-                      help="Enable unicode-nazi")
-    opts, args = parser.parse_args()
-    if not opts.config:
-        parser.error("You must specify a configuration file")
-    if opts.debug:
+    print header
+    o = Options(optspec)
+    (options, flags, extra) = o.parse(sys.argv[1:])
+
+    if not options.config:
+        o.fatal("You must specify a configuration file!")
+    if options.debug:
         logger.setLevel(logging.DEBUG)
-    if opts.unicode_nazi:
+    if options.unaz:
         try:
             import unicodenazi
         except ImportError:
-            pass
+            logger.warning("Cannot find unicode-nazi package!")
 
-    config = read_config_files([opts.config])
+    config = read_config_files(options.config)
     head = BigHead(config)
     head.run()
 
