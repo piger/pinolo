@@ -1,13 +1,12 @@
-#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 """
+IRC connections handling with gevent.
 
-Ispirato da:
+Heavily inspired by hmbot and the following gist by gihub:maxcountryman:
 https://gist.github.com/676306
-
 """
 
-import sys, os, re
+import os, re
 import time
 import logging
 
@@ -26,11 +25,33 @@ from pinolo.utils import decode_text
 from pinolo.config import database_filename
 from pinolo.casuale import get_random_quit, get_random_reply
 
-usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
 
+# re for usermask parsing
+# usermask_re = re.compile(r'(?:([^!]+)!)?(?:([^@]+)@)?(\S+)')
+# Note: some IRC events could not have a normal usermask, for example:
+# PING :server.irc.net
+usermask_re = re.compile(r'''
+                         # nickname!ident@hostname
+                         # optional nickname
+                         (?:
+                             ([^!]+)!
+                         )?
+                         # optional ident
+                         (?:
+                            ([^@]+)@
+                         )?
+
+                         # expected hostname
+                         (\S+)
+                         ''', re.VERBOSE)
+
+# IRC newline
 NEWLINE = '\r\n'
+
+# IRC CTCP 'special' character
 CTCPCHR = u'\x01'
 
+# Standard command aliases
 COMMAND_ALIASES = {
     's': 'search',
 }
@@ -38,19 +59,30 @@ COMMAND_ALIASES = {
 class LastEvent(Exception): pass
 
 def parse_usermask(usermask):
-    """Ritorna una tupla con (nickname, ident, hostname)
+    """Parse a usermask and returns a tuple with (nickname, ident, hostname).
 
-    ... oppure raisa una Exception
+    If the regexp fail to parse the usermask a tuple of None will be returned,
+    like (None, None, None).
     """
     match = usermask_re.match(usermask)
     if match:
         return match.groups()
     else:
-        raise RuntimeError(u"Invalid usermask: %s" % usermask)
+        return (None, None, None)
 
 class IRCUser(object):
-    """
-    Un utente IRC.
+    """This class represent common IRC informations about a user.
+
+    Attributes:
+
+    self.ident
+        Ident string for that user.
+
+    self.hostname
+        Hostname for that user.
+
+    self.nickname
+        Nickname for that user.
     """
     def __init__(self, ident, hostname, nickname):
         self.ident, self.hostname, self.nickname = ident, hostname, nickname
@@ -59,8 +91,30 @@ class IRCUser(object):
         return u"<IRCUser(nickname:%s, %s@%s)>" % (self.nickname, self.ident, self.hostname)
 
 class IRCEvent(object):
-    """
-    Un evento IRC generico.
+    """Common IRC event class.
+
+    Attributes:
+
+    self.client
+        The client instance that received the event.
+
+    self.user
+        The IRC user who triggered the event.
+
+    self.command
+        The command from the event; this can be an IRC event (e.g: PRIVMSG) or
+        an internal command (e.g: !quote).
+
+    self.argstr
+        Arguments of `command` as a string; this can be for example the target
+        of a PRVIMSG.
+
+    self.args
+        A list containing the splitted (by whitespace) words from argstr.
+
+    self.text
+        Everything after the first ':' in an IRC line; this can be, for example,
+        the content of a PRVIMSG.
     """
 
     def __init__(self, client, user, command, argstr, args=None, text=None):
@@ -79,9 +133,15 @@ class IRCEvent(object):
         return self.user.nickname
 
     def reply(self, message, prefix=True):
-        """
-        Manda un PRIVMSG di risposta all'evento, scrivendo in canale se si tratta
-        di un evento pubblico o in query se l'evento e' privato.
+        """Send a PRIVMSG to a user or a channel as a reply to some query.
+
+        message
+            The text message that will be sent; it must be an unicode string
+            object!
+
+        prefix
+            If `True` `message` will be prefixed with the nickname of the user
+            who triggered the event.
         """
         assert type(message) is unicode
         assert type(self.user.nickname is unicode)
@@ -101,8 +161,21 @@ class IRCEvent(object):
 
 
 class IRCClient(object):
-    """
-    Un client IRC (bot) con gevent.
+    """An IRC client with gevent.
+
+    Attributes:
+
+    self.name
+        Name identifying this connection, usually the IRC network name.
+
+    self.config
+        Pointer to this client configuration dict.
+
+    self.general_config
+        Pointer to the global bot configuration.
+
+    self.head
+        Pointer to the "head" object (the connection manager).
     """
 
     def __init__(self, name, config, general_config, head):
@@ -129,6 +202,11 @@ class IRCClient(object):
         self.g_output = gevent.spawn(self.output_loop)
 
     def connect(self):
+        """Connect to the configured IRC server.
+
+        In case of a connection error gevent.sleep() will be called to pause the
+        client before attempting a new connection.
+        """
         while True:
             try:
                 self._connect()
@@ -150,9 +228,7 @@ class IRCClient(object):
         self.event_loop()
 
     def _connect(self):
-        """
-        Si connette al server IRC, fa partire i loop read/write e si autentica
-        al server; infine fa partire l'event loop.
+        """This is the real method for connecting to a IRC server.
         """
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if self.config.ssl:
@@ -163,9 +239,7 @@ class IRCClient(object):
                                                 self.name)
 
     def login_to_server(self):
-        """
-        Effettua il "login" nel server IRC, inviando la `password` se necessario.
-        NOTA: rendere le "flag utente" configurabili? (+invisibile, etc)
+        """Login to the IRC server and optionally sends the server password.
         """
         if self.config.password:
             self.send_cmd(u"PASS %s" % self.config.password)
@@ -178,16 +252,10 @@ class IRCClient(object):
         self.send_cmd(u"NICK %s" % nickname)
 
     def event_loop(self):
-        """
-        Gestisce gli eventi da IRC.
+        """IRC event handling.
 
-        In questo caso ogni `riga` da IRC e' un evento, va percio' parsata e costruito
-        un oggetto `Evento` da passare agli handler.
-
-        For all of the rest of these messages, there is a source on
-        the other messages from the server side. This is a user and
-        hostmask for a user's message, and a server name otherwise. If
-        you are writing a client, do not send the :source part.
+        Every line read from a IRC server will be a new event, so a Event object
+        will be created with all the details of the event.
         """
         while True:
             line = None
@@ -269,6 +337,18 @@ class IRCClient(object):
             self.connect()
 
     def dispatch_event(self, event_name, event):
+        """Dispatch an Event object to the related methods.
+
+        Method lookup will search this class and all plugin classes for a method
+        named as in `event_name`.
+
+        event_name
+            The event name in the form "on_<event name>", for example:
+            on_PRIVMSG.
+
+        event
+            The Event object.
+        """
         for inst in [self] + self.head.plugins:
             if hasattr(inst, event_name):
                 f = getattr(inst, event_name)
@@ -279,11 +359,17 @@ class IRCClient(object):
                     break
 
     def send_cmd(self, cmd):
+        """Queue a IRC command to send to the server.
+
+        cmd
+            A formatted IRC command string.
+        """
         self.oqueue.put(cmd)
 
     def output_loop(self):
-        """
-        Invia una riga al server IRC apponendo il giusto newline.
+        """Handle this client output queue.
+
+        Process items in `self.oqueue` and sends them to the server.
         """
         while True:
             # NOTA: Queue di gevent 0.12.2-7 di debian non supporta l'iterazione :(
@@ -311,17 +397,20 @@ class IRCClient(object):
         self._last_write_time = now
 
     def msg_channels(self, msg, channels=None):
+        """Send a PRIVMSG to a list of channels."""
         if channels is None:
             channels = self.config.channels[:]
         for channel in channels:
             self.msg(channel, msg)
 
     def join(self, channel):
+        """Join a channel."""
         self.logger.info(u"Joining %s" % channel)
         self.send_cmd(u"JOIN %s" % channel)
         self.me(channel, u"saluta tutti")
 
     def quit(self, message="Bye"):
+        """Quit this connection and kills the greenlet."""
         self.logger.info(u"QUIT requested")
         if self.running:
             self.send_cmd(u"QUIT :%s" % message)
@@ -343,54 +432,41 @@ class IRCClient(object):
         self.msg(target, u"%sACTION %s%s" % (CTCPCHR, message, CTCPCHR))
 
     def ctcp(self, target, message):
-        """
-        Invia un CTCP.
-        """
+        """Generic CTCP send method."""
         self.logger.debug(u"SENT CTCP TO %s :%s" % (target, message))
         self.msg(target, u"%s%s%s" % (CTCPCHR, message, CTCPCHR))
 
     def ctcp_reply(self, target, message):
-        """
-        Risponde a un CTCP.
-        """
+        """Reply to a CTCP."""
         self.logger.debug(u"CTCP REPLY TO %s: %s" % (target, message))
         self.notice(target, u"%s%s%s" % (CTCPCHR, message, CTCPCHR))
 
     def ctcp_ping(self, target):
-        """
-        Manda un CTCP PING a `target`.
-        """
+        """Send a CTCP PING to a target IRC user."""
         tempo = int(time.time())
         self.ctcp(target, u"PING %d" % (tempo,))
 
     def ctcp_ping_reply(self, target, message):
-        """
-        Risponde a un CTCP PING.
-        """
+        """Reply to a CTCP PING."""
         self.ctcp_reply(target, u"PING %s" % message)
 
     def nickserv_login(self):
-        """
-        Autentica il nickname con NickServ.
-        """
+        """Handle authentication with NickServ service."""
         self.logger.info(u"Authenticating with NickServ")
         self.msg(u'NickServ', u"IDENTIFY %s" % self.config.nickserv)
         gevent.sleep(1)
 
     def ciclo_pingo(self):
-        """
-        Setta il timer per pingare noi stessi.
-        """
+        """Set a gevent.timer that will ping ourself from time to time."""
         self.ping_timer = timer(PING_DELAY, self.pingati)
 
     def stop_ciclo_pingo(self):
+        """Stop the gevent.timer created by `ciclo_pingo`."""
         if self.ping_timer is not None:
             self.ping_timer.cancel()
 
     def pingati(self):
-        """
-        Pinga se stesso e setta di nuovo il timer.
-        """
+        """Ping myself and set a new self-ping timer."""
         # verifico che siamo connessi; non e' troppo affidabile...
         if self.running:
             self.logger.debug(u"PING to myself")
@@ -398,6 +474,7 @@ class IRCClient(object):
             self.ciclo_pingo()
 
     def increase_throttle(self):
+        """Increase the throttle of PRIVMSG sent to the server."""
         old_value = self.throttle_out
         self.throttle_out += THROTTLE_INCREASE
         self.logger.warning(u"Increasing throttle: %f -> %f" % (old_value,
