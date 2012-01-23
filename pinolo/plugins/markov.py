@@ -10,10 +10,13 @@ try:
 except ImportError:
     import pickle
 import gzip
-import os, sys, re
+import os
+import sys
+import re
 import random
 import codecs
 import pkg_resources
+import shutil
 
 import logging
 from pinolo.plugins import Plugin
@@ -192,10 +195,25 @@ class Markov(object):
         return u' '.join(sentence)
 
     def save(self, filename):
-        f = gzip.GzipFile(filename, 'wb')
+        """Salva il database Markov su disco.
+
+        1) Eseguo una copia di backup in "filename.bak"
+        2) Scrivo il database su un file temporaneo "filename.tmp"
+        3) Rinomino "filename.tmp" in "filename"
+        """
+        # copio il db in un backup
+        backup_filename = "%s.bak" % filename
+        shutil.copyfile(filename, backup_filename)
+
+        # scrivo il db su un file temporaneo
+        tmp_filename = "%s.tmp" % filename
+        f = gzip.GzipFile(tmp_filename, 'wb')
         data_to_save = (self.tokens, self.keywords)
         pickle.dump(data_to_save, f, -1)
         f.close()
+
+        # rinomino il db nel file temporaneo nel nome definitivo
+        os.rename(tmp_filename, filename)
 
     def load(self, filename):
         try:
