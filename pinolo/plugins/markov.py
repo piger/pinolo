@@ -202,8 +202,9 @@ class Markov(object):
         3) Rinomino "filename.tmp" in "filename"
         """
         # copio il db in un backup
-        backup_filename = "%s.bak" % filename
-        shutil.copyfile(filename, backup_filename)
+        if os.path.exists(filename):
+            backup_filename = "%s.bak" % filename
+            shutil.copyfile(filename, backup_filename)
 
         # scrivo il db su un file temporaneo
         tmp_filename = "%s.tmp" % filename
