@@ -264,8 +264,8 @@ class IRCClient(object):
             if line is None:
                 self.logger.warning("Connection timeout: "
                                     "%d elapsed" % CONNECTION_TIMEOUT)
-                # break # XXX
-                continue
+                break
+                # continue
 
             if line == '': break # EOF
             line = decode_text(line.strip())
