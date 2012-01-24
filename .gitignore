@@ -10,3 +10,4 @@ prcd/*.txt
 xapian/
 db.sqlite
 pinolo.egg-info
+*.swp

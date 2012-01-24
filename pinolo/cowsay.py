@@ -1,13 +1,11 @@
-# -*- encoding: utf-8 -*-
-
+# -*- coding: utf-8 -*-
 import logging
 import subprocess
 import random
 import shlex
+from pinolo.utils.gevent import popen_communicate
 
-from pinolo.utils import popen_communicate
-
-logger = logging.getLogger('pinolo.cowsay')
+logger = logging.getLogger(__name__)
 
 # le flag per modificare gli occhi della mucca
 eyes_flags = ('b', 'd', 'g', 'p', 's', 't', 'w', 'y', '')

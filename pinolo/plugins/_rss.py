@@ -39,7 +39,7 @@ from gevent.queue import Queue
 import feedparser
 
 from pinolo.plugins import Plugin
-from pinolo.utils import gevent_HTTPHandler
+from pinolo.utils.gevent import gevent_HTTPHandler
 from pinolo.utils.text import md5
 
 from pinolo import USER_AGENT

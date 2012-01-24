@@ -5,7 +5,7 @@ import urllib
 import json
 import itertools
 from pinolo.plugins import Plugin
-from pinolo.utils import gevent_url_open
+from pinolo.utils.gevent import gevent_url_open
 
 SEARCH_URL = "http://api.duckduckgo.com/"
 MAX_RESULTS = 5

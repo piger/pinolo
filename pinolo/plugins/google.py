@@ -6,7 +6,9 @@ import logging
 logger = logging.getLogger('pinolo.plugins.google')
 
 from pinolo.plugins import Plugin
-from pinolo.utils import gevent_url_open, strip_html
+from pinolo.utils.text import strip_html
+from pinolo.utils.gevent import gevent_url_open
+
 
 MAX_RESULTS = 5
 SEARCH_LANG = 'it'
