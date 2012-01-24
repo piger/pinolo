@@ -9,6 +9,7 @@ https://gist.github.com/676306
 import os, re
 import time
 import logging
+import errno
 
 import gevent
 from gevent.core import timer
@@ -21,7 +22,7 @@ from pinolo import CONNECTION_TIMEOUT, PING_DELAY, THROTTLE_TIME, THROTTLE_INCRE
 from pinolo.database import init_db
 from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
-from pinolo.utils import decode_text
+from pinolo.utils.text import decode_text
 from pinolo.config import database_filename
 from pinolo.casuale import get_random_quit, get_random_reply
 
@@ -192,14 +193,19 @@ class IRCClient(object):
         self.stream = None
         self.throttle_out = THROTTLE_TIME
         self._last_write_time = 0
-        self.logger = logging.getLogger('pinolo.irc.' + self.name)
-        self.running = False
+        self.logger = logging.getLogger("%s.%s" % (__name__, self.name))
+        self._running = False
         self._connected = False
 
         self.ping_timer = None
         self.greenlet = None
 
         self.g_output = gevent.spawn(self.output_loop)
+
+    def __repr__(self):
+        return "%s(name: %r)" % (
+            self.__class__.__name__, self.name
+        )
 
     def connect(self):
         """Connect to the configured IRC server.
@@ -212,17 +218,25 @@ class IRCClient(object):
                 self._connect()
                 self._connected = True
             except socket.error, e:
+                # Ad esempio:
+                # e.errno == errno.ECONNREFUSED
+                error_name = errno.errorcode[e.errno]
+                error_desc = os.strerror(e.errno)
+
+                self.logger.error("Failed connection to: %s:%d (%s %s)" % (
+                    self.config.address, self.config.port, error_name, error_desc)
+                )
+                self.logger.warning("I'll be quiet for %d seconds before "
+                                    "trying to connect again" %
+                                    FAILED_CONNECTION_RECONNECT_TIME)
+
                 self._connected = False
-                print u"[*] ERROR: Failed connecting to: %s:%d " \
-                      "(%s) - %s" % (self.config.address, self.config.port,
-                                     self.name, str(e))
-                print u"[*] Sleeping %i seconds before reconnecting" % FAILED_CONNECTION_RECONNECT_TIME
                 gevent.sleep(FAILED_CONNECTION_RECONNECT_TIME)
             else:
                 break
 
         gevent.sleep(1)
-        self.running = True
+        self._running = True
         self.login_to_server()
         self.ciclo_pingo()
         self.event_loop()
@@ -235,8 +249,9 @@ class IRCClient(object):
             self.socket = ssl.wrap_socket(self.socket)
         self.stream = self.socket.makefile()
         self.socket.connect((self.config.address, self.config.port))
-        print "[*] Connected to: %s:%d (%s)" % (self.config.address, self.config.port,
-                                                self.name)
+        self.logger.info("Connected to: %s:%d (%s)" % (
+            self.config.address, self.config.port, self.name)
+        )
 
     def login_to_server(self):
         """Login to the IRC server and optionally sends the server password.
@@ -326,8 +341,8 @@ class IRCClient(object):
 
         # qui siamo a EOF! ######################
         self._connected = False
-        if self.running:
-            self.running = False
+        if self._running:
+            self._running = False
             self.logger.warning(u"EOF from server? Sleeping %i seconds before "
                                 "reconnecting" % EOF_RECONNECT_TIME)
             gevent.sleep(EOF_RECONNECT_TIME)
@@ -412,9 +427,9 @@ class IRCClient(object):
     def quit(self, message="Bye"):
         """Quit this connection and kills the greenlet."""
         self.logger.info(u"QUIT requested")
-        if self.running:
+        if self._running:
             self.send_cmd(u"QUIT :%s" % message)
-            self.running = False # XXX
+            self._running = False # XXX
         self.oqueue.put(StopIteration) # uno shutdown pulito, spero.
         self.stop_ciclo_pingo()
         # self.stream.close() # XXX
@@ -468,7 +483,7 @@ class IRCClient(object):
     def pingati(self):
         """Ping myself and set a new self-ping timer."""
         # verifico che siamo connessi; non e' troppo affidabile...
-        if self.running:
+        if self._running:
             self.logger.debug(u"PING to myself")
             self.ctcp_ping(self.current_nickname)
             self.ciclo_pingo()
