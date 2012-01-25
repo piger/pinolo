@@ -17,14 +17,16 @@ from gevent import socket, ssl
 from gevent.queue import Queue
 
 import pinolo.plugins
-from pinolo import FULL_VERSION, EOF_RECONNECT_TIME, FAILED_CONNECTION_RECONNECT_TIME
-from pinolo import CONNECTION_TIMEOUT, PING_DELAY, THROTTLE_TIME, THROTTLE_INCREASE
 from pinolo.database import init_db
 from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
 from pinolo.utils.text import decode_text
 from pinolo.config import database_filename
 from pinolo.casuale import get_random_quit, get_random_reply
+from pinolo import (FULL_VERSION, EOF_RECONNECT_TIME,
+                    FAILED_CONNECTION_RECONNECT_TIME,
+                    CONNECTION_TIMEOUT, PING_DELAY, THROTTLE_TIME,
+                    THROTTLE_INCREASE)
 
 
 # re for usermask parsing
@@ -223,10 +225,10 @@ class IRCClient(object):
                 error_name = errno.errorcode[e.errno]
                 error_desc = os.strerror(e.errno)
 
-                self.logger.error("Failed connection to: %s:%d (%s %s)" % (
+                self.logger.error(u"Failed connection to: %s:%d (%s %s)" % (
                     self.config.address, self.config.port, error_name, error_desc)
                 )
-                self.logger.warning("I'll be quiet for %d seconds before "
+                self.logger.warning(u"I'll be quiet for %d seconds before "
                                     "trying to connect again" %
                                     FAILED_CONNECTION_RECONNECT_TIME)
 
@@ -249,7 +251,7 @@ class IRCClient(object):
             self.socket = ssl.wrap_socket(self.socket)
         self.stream = self.socket.makefile()
         self.socket.connect((self.config.address, self.config.port))
-        self.logger.info("Connected to: %s:%d (%s)" % (
+        self.logger.info(u"Connected to: %s:%d (%s)" % (
             self.config.address, self.config.port, self.name)
         )
 
@@ -277,7 +279,7 @@ class IRCClient(object):
             with gevent.Timeout(CONNECTION_TIMEOUT, False):
                 line = self.stream.readline()
             if line is None:
-                self.logger.warning("Connection timeout: "
+                self.logger.warning(u"Connection timeout: "
                                     "%d elapsed" % CONNECTION_TIMEOUT)
                 break
                 # continue
@@ -335,7 +337,7 @@ class IRCClient(object):
             event = IRCEvent(self, user, command, argstr, args, text)
 
             event_name = 'on_%s' % command
-            self.logger.debug("looking for event %s" % (event_name,))
+            self.logger.debug(u"looking for event %s" % (event_name,))
             self.dispatch_event(event_name, event)
 
 
@@ -370,7 +372,7 @@ class IRCClient(object):
                 try:
                     f(event)
                 except LastEvent:
-                    self.logger.debug("LastEvent for %s from %r" % (event_name, f))
+                    self.logger.debug(u"LastEvent for %s from %r" % (event_name, f))
                     break
 
     def send_cmd(self, cmd):
@@ -391,7 +393,7 @@ class IRCClient(object):
             cmd = self.oqueue.get()
             if cmd is StopIteration: break
             if not self._connected:
-                self.logger.error("Discarding output (we are not connected): %r" % (cmd,))
+                self.logger.error(u"Discarding output (we are not connected): %r" % (cmd,))
                 continue
             if isinstance(cmd, unicode):
                 cmd = cmd.encode('utf-8')
@@ -562,7 +564,7 @@ class IRCClient(object):
             reason = u""
 
         if reason == u"excess flood":
-            self.logger.warning("ERROR: Excess Flood from server!")
+            self.logger.warning(u"ERROR: Excess Flood from server!")
             self.increase_throttle()
         self.logger.warning(u"ERROR from server: %s" % event.argstr)
 
