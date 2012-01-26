@@ -7,7 +7,7 @@ logger = logging.getLogger('pinolo.plugins.google')
 
 from pinolo.plugins import Plugin
 from pinolo.utils.text import strip_html
-from pinolo.utils.gevent import gevent_url_open
+from pinolo.utils.network import gevent_url_open
 
 
 MAX_RESULTS = 5

@@ -3,7 +3,7 @@ import logging
 import subprocess
 import random
 import shlex
-from pinolo.utils.gevent import popen_communicate
+from pinolo.utils.network import popen_communicate
 
 logger = logging.getLogger(__name__)
 
