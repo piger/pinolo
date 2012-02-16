@@ -15,7 +15,9 @@ setup(
     zip_safe=False,
     packages=find_packages(),
     package_data={
-        "pinolo": ['data/*.txt', 'data/prcd/*'],
+        "pinolo": ['data/*.txt', 'data/prcd/*',
+                   'plugins/*.txt'
+                  ],
     },
     entry_points={
         "console_scripts": [

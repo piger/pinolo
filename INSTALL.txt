@@ -1,0 +1,31 @@
+# Installation
+
+## Requirements
+
+Python version 2.6 at least, sqlite lib, event lib and the following python
+packages: SQLAlchemy, gevent. For fancy text search you will also need to
+install Xapian libraries and python packages (which IIRC are not
+easy-installable...).
+
+Ideally you should safely run the usual `python setup.py install` and get the
+shit done, but first you must install all the C libraries with your distribution
+package tools.
+
+Debian/Ubuntu:
+
+- libsqlite3-0 
+- libevent-1.4-2
+- libxapian22
+- python-xapian
+
+Python packages installation:
+
+	# easy_install SQLAlchemy gevent
+
+or
+
+	# pip install SQLAlchemy gevent
+
+or
+
+	# aptitude install tuasorella
