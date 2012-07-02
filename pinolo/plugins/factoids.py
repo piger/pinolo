@@ -11,8 +11,7 @@ from sqlalchemy import *
 from sqlalchemy.orm.exc import NoResultFound
 
 re_domanda = re.compile(r"""
-(?:(?:cosa|chi|che|cos')\s*(?:e'|è|é)\s+)?
-([^?]+)\s*\?+
+(?:cosa|chi|che|cos')\s*(?:e'|è|é)\s+([^?]+)\s*\?+
 """, re.UNICODE | re.VERBOSE)
 re_subjfact = re.compile(r"\s*(?:e'|è|é)\s*", re.UNICODE)
 
