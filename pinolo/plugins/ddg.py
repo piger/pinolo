@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-
-from collections import defaultdict
+"""DuckDuckGo plugin"""
 import urllib
 import json
-import itertools
 from pinolo.plugins import Plugin
 from pinolo.utils.network import gevent_url_open
+
 
 SEARCH_URL = "http://api.duckduckgo.com/"
 MAX_RESULTS = 5
@@ -42,8 +41,8 @@ def search_ddg(text):
     # pr = dict((k, v) for k,v in r.items() if v)
 
     # tolgo i value vuoti o nulli e i value duplicati.
-    # mi serve perche' il dict con i risultati contiene per alcuni campi sia la versione
-    # plaintext che quella HTML, e io uso `no_html`.
+    # mi serve perche' il dict con i risultati contiene per alcuni campi sia la
+    # versione plaintext che quella HTML, e io uso `no_html`.
     results = {}
     for k, v in r.items():
         if type(v) is list:
@@ -63,13 +62,15 @@ def search_ddg(text):
 
     return results
 
+
 class DuckDuckGoPlugin(Plugin):
     COMMAND_ALIASES = {
         'ddg': 'duckduckgo',
     }
 
     def on_cmd_duckduckgo(self, event):
-        if not event.text: return
+        if not event.text:
+            return
         results = search_ddg(event.text)
         if not len(results.keys()):
             event.reply(u"DDG busta de piscio")

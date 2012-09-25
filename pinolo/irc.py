@@ -5,24 +5,22 @@ IRC connections handling with gevent.
 Heavily inspired by hmbot and the following gist by gihub:maxcountryman:
 https://gist.github.com/676306
 """
-
-import os, re
+import os
+import re
 import time
 import logging
 import errno
-
 import gevent
 from gevent.core import timer
 from gevent import socket, ssl
 from gevent.queue import Queue
-
 import pinolo.plugins
 from pinolo.database import init_db
 from pinolo.prcd import moccolo_random, prcd_categories
 from pinolo.cowsay import cowsay
 from pinolo.utils.text import decode_text
 from pinolo.config import database_filename
-from pinolo.casuale import get_random_quit, get_random_reply
+from pinolo.casuale import get_random_quit
 from pinolo import (FULL_VERSION, EOF_RECONNECT_TIME,
                     FAILED_CONNECTION_RECONNECT_TIME,
                     CONNECTION_TIMEOUT, PING_DELAY, THROTTLE_TIME,
@@ -59,7 +57,10 @@ COMMAND_ALIASES = {
     's': 'search',
 }
 
-class LastEvent(Exception): pass
+
+class LastEvent(Exception):
+    pass
+
 
 def parse_usermask(usermask):
     """Parse a usermask and returns a tuple with (nickname, ident, hostname).
@@ -72,6 +73,7 @@ def parse_usermask(usermask):
         return match.groups()
     else:
         return (None, None, None)
+
 
 class IRCUser(object):
     """This class represent common IRC informations about a user.
@@ -91,7 +93,9 @@ class IRCUser(object):
         self.ident, self.hostname, self.nickname = ident, hostname, nickname
 
     def __repr__(self):
-        return u"<IRCUser(nickname:%s, %s@%s)>" % (self.nickname, self.ident, self.hostname)
+        return u"<IRCUser(nickname:%s, %s@%s)>" % (
+            self.nickname, self.ident, self.hostname)
+
 
 class IRCEvent(object):
     """Common IRC event class.
@@ -116,8 +120,8 @@ class IRCEvent(object):
         A list containing the splitted (by whitespace) words from argstr.
 
     self.text
-        Everything after the first ':' in an IRC line; this can be, for example,
-        the content of a PRVIMSG.
+        Everything after the first ':' in an IRC line; this can be, for
+        example, the content of a PRVIMSG.
     """
 
     def __init__(self, client, user, command, argstr, args=None, text=None):
@@ -159,8 +163,8 @@ class IRCEvent(object):
 
     def __repr__(self):
         return u"<IRCEvent(%r, command: %s, argstr: %s, " \
-               "args: %r, text: %r)>" % (self.user, self.command, self.argstr, self.args,
-                                         self.text)
+               "args: %r, text: %r)>" % (self.user, self.command, self.argstr,
+                                         self.args, self.text)
 
 
 class IRCClient(object):
@@ -190,7 +194,6 @@ class IRCClient(object):
         self.nickname = self.config.nickname
         self.current_nickname = self.nickname
 
-        self.oqueue = Queue()
         self.socket = None
         self.stream = None
         self.throttle_out = THROTTLE_TIME
@@ -202,8 +205,6 @@ class IRCClient(object):
         self.ping_timer = None
         self.greenlet = None
 
-        self.g_output = gevent.spawn(self.output_loop)
-
     def __repr__(self):
         return "%s(name: %r)" % (
             self.__class__.__name__, self.name
@@ -212,8 +213,8 @@ class IRCClient(object):
     def connect(self):
         """Connect to the configured IRC server.
 
-        In case of a connection error gevent.sleep() will be called to pause the
-        client before attempting a new connection.
+        In case of a connection error gevent.sleep() will be called to pause
+        the client before attempting a new connection.
         """
         while True:
             try:
@@ -226,8 +227,8 @@ class IRCClient(object):
                 error_desc = os.strerror(e.errno)
 
                 self.logger.error(u"Failed connection to: %s:%d (%s %s)" % (
-                    self.config.address, self.config.port, error_name, error_desc)
-                )
+                    self.config.address, self.config.port, error_name,
+                    error_desc))
                 self.logger.warning(u"I'll be quiet for %d seconds before "
                                     "trying to connect again" %
                                     FAILED_CONNECTION_RECONNECT_TIME)
@@ -271,8 +272,8 @@ class IRCClient(object):
     def event_loop(self):
         """IRC event handling.
 
-        Every line read from a IRC server will be a new event, so a Event object
-        will be created with all the details of the event.
+        Every line read from a IRC server will be a new event, so a Event
+        object will be created with all the details of the event.
         """
         while True:
             line = None
@@ -284,7 +285,8 @@ class IRCClient(object):
                 break
                 # continue
 
-            if line == '': break # EOF
+            if line == '':
+                break       # EOF
             line = decode_text(line.strip())
             self.logger.debug(u"IN: %s" % line)
 
@@ -340,7 +342,6 @@ class IRCClient(object):
             self.logger.debug(u"looking for event %s" % (event_name,))
             self.dispatch_event(event_name, event)
 
-
         # qui siamo a EOF! ######################
         self._connected = False
         if self._running:
@@ -348,16 +349,15 @@ class IRCClient(object):
             self.logger.warning(u"EOF from server? Sleeping %i seconds before "
                                 "reconnecting" % EOF_RECONNECT_TIME)
             gevent.sleep(EOF_RECONNECT_TIME)
-            self.logger.info(u"Reconnecting to %s:%d (%s)" % (self.config.address,
-                                                              self.config.port,
-                                                              self.name))
+            self.logger.info(u"Reconnecting to %s:%d (%s)" % (
+                self.config.address, self.config.port, self.name))
             self.connect()
 
     def dispatch_event(self, event_name, event):
         """Dispatch an Event object to the related methods.
 
-        Method lookup will search this class and all plugin classes for a method
-        named as in `event_name`.
+        Method lookup will search this class and all plugin classes for a
+        method named as in `event_name`.
 
         event_name
             The event name in the form "on_<event name>", for example:
@@ -372,7 +372,8 @@ class IRCClient(object):
                 try:
                     f(event)
                 except LastEvent:
-                    self.logger.debug(u"LastEvent for %s from %r" % (event_name, f))
+                    self.logger.debug(u"LastEvent for %s from %r" % (
+                        event_name, f))
                     break
 
     def send_cmd(self, cmd):
@@ -380,25 +381,17 @@ class IRCClient(object):
 
         cmd
             A formatted IRC command string.
-        """
-        self.oqueue.put(cmd)
 
-    def output_loop(self):
-        """Handle this client output queue.
-
-        Process items in `self.oqueue` and sends them to the server.
+        NOTA: Adesso scrive direttamente sul socket.
         """
-        while True:
-            # NOTA: Queue di gevent 0.12.2-7 di debian non supporta l'iterazione :(
-            cmd = self.oqueue.get()
-            if cmd is StopIteration: break
-            if not self._connected:
-                self.logger.error(u"Discarding output (we are not connected): %r" % (cmd,))
-                continue
-            if isinstance(cmd, unicode):
-                cmd = cmd.encode('utf-8')
-            self.stream.write(cmd + NEWLINE)
-            self.stream.flush()
+        if not self._connected:
+            self.logger.error(u"Discarding output (we aren't connected): %r" %
+                              (cmd,))
+            return
+        if isinstance(cmd, unicode):
+            cmd = cmd.encode('utf-8', 'replace')
+        self.stream.write(cmd + NEWLINE)
+        self.stream.flush()
 
     def msg(self, target, message):
         """
@@ -431,8 +424,7 @@ class IRCClient(object):
         self.logger.info(u"QUIT requested")
         if self._running:
             self.send_cmd(u"QUIT :%s" % message)
-            self._running = False # XXX
-        self.oqueue.put(StopIteration) # uno shutdown pulito, spero.
+            self._running = False           # XXX
         self.stop_ciclo_pingo()
         # self.stream.close() # XXX
         self.socket.close()
@@ -494,11 +486,10 @@ class IRCClient(object):
         """Increase the throttle of PRIVMSG sent to the server."""
         old_value = self.throttle_out
         self.throttle_out += THROTTLE_INCREASE
-        self.logger.warning(u"Increasing throttle: %f -> %f" % (old_value,
-                                                                self.throttle_out))
+        self.logger.warning(u"Increasing throttle: %f -> %f" % (
+            old_value, self.throttle_out))
 
-
-    # EVENTS ################################################################################
+    # EVENTS ##################################################################
 
     def on_001(self, event):
         """
@@ -534,7 +525,8 @@ class IRCClient(object):
 
     def on_CTCP_PING(self, event):
         if event.user.nickname != self.current_nickname:
-            self.logger.info(u"CTCP PING from %s: %s" % (event.user.nickname, event.argstr))
+            self.logger.info(u"CTCP PING from %s: %s" % (event.user.nickname,
+                                                         event.argstr))
         self.ctcp_ping_reply(event.user.nickname, event.argstr)
 
     def on_CTCP_VERSION(self, event):
@@ -546,7 +538,8 @@ class IRCClient(object):
 
     def on_KICK(self, event):
         channel = event.args[0]
-        self.logger.info(u"KICKed from %s by %s (%s)" % (channel, event.nickname, event.text))
+        self.logger.info(u"KICKed from %s by %s (%s)" % (
+            channel, event.nickname, event.text))
         gevent.sleep(1)
         self.join(channel)
 
@@ -555,7 +548,8 @@ class IRCClient(object):
         2011-09-05 10:51:14,156 pinolo.irc.azzurra WARNING ERROR from server: :Closing Link: my.hostname.net (Excess Flood)
         """
         # skip if it's our /quit command
-        if '(Quit:' in event.argstr: return
+        if '(Quit:' in event.argstr:
+            return
         match = re.search(r"\(([^)]+)\)", event.argstr)
         if match:
             reason = match.group(1)
@@ -571,7 +565,8 @@ class IRCClient(object):
     def on_cmd_quit(self, event):
         if event.user.nickname == u'sand':
             reason = get_random_quit() if event.text == '' else event.text
-            self.logger.warning(u"Global quit from %s (%s)" % (event.user.nickname, reason))
+            self.logger.warning(u"Global quit from %s (%s)" % (
+                event.user.nickname, reason))
             self.head.shutdown(reason)
 
     def on_cmd_prcd(self, event):
@@ -597,9 +592,11 @@ class IRCClient(object):
     def on_cmd_pingami(self, event):
         self.ctcp_ping(event.user.nickname)
 
+
 class BigHead(object):
     """
-    Questo oggetto e' il cervellone che gestisce i plugin e tutte le connessioni.
+    Questo oggetto e' il cervellone che gestisce i plugin e tutte le
+    connessioni.
     """
 
     def __init__(self, config):
@@ -607,13 +604,13 @@ class BigHead(object):
         self.connections = {}
         self.plugins = []
         self.logger = logging.getLogger('pinolo.head')
-        self.plugins_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                                        'plugins')
+        self.plugins_dir = os.path.join(
+            os.path.abspath(os.path.dirname(__file__)), 'plugins')
         self.db_uri = database_filename(self.config.datadir)
 
         self.load_plugins()
         self.start_plugins()
-        # init_db() va DOPO start_plugins() per creare eventuali tabelle del DB.
+        # init_db() va DOPO start_plugins() per creare eventuali tabelle del DB
         # in realta' va DOPO l'import. XXX
         init_db(self.db_uri)
         self.activate_plugins()
@@ -632,7 +629,7 @@ class BigHead(object):
         for root, dirs, files in os.walk(self.plugins_dir):
             files = [os.path.splitext(x)[0] for x in files
                      if (not x.startswith('_') and x.endswith('.py'))]
-            for libname in set(files): # uniqify
+            for libname in set(files):      # uniqify
                 libname = "pinolo.plugins." + libname
                 self.logger.info(u"Importing plugin: %s" % (libname,))
                 p = my_import(libname)

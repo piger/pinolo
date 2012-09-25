@@ -1,4 +1,4 @@
-VERSION = (0, 9, 1)
+VERSION = (0, 9, 2)
 STR_VERSION = '.'.join([str(x) for x in VERSION])
 FULL_VERSION = "Pinolo-" + STR_VERSION
 SOURCE_URL = "http://code.dyne.org/?r=pinolo"
@@ -11,5 +11,5 @@ EOF_RECONNECT_TIME = 60
 FAILED_CONNECTION_RECONNECT_TIME = 120
 CONNECTION_TIMEOUT = 60 * 5
 PING_DELAY = float(60 * 4)
-THROTTLE_TIME = 0.5 # float
-THROTTLE_INCREASE = float(0.2) # float
+THROTTLE_TIME = 0.5             # float
+THROTTLE_INCREASE = float(0.2)  # float
