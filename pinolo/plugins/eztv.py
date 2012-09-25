@@ -56,5 +56,5 @@ class EztvPlugin(Plugin):
             event.reply(u"Non ho trovato una cippa di cazzo, sory")
             return
 
-        for result in results:
+        for result in results[:MAX_RESULTS]:
             event.reply(result)
