@@ -13,6 +13,7 @@ import logging
 import re
 import socket
 import errno
+import time
 import threading
 import Queue
 import urllib2
@@ -326,12 +327,53 @@ class IRCConnection(object):
         self.send(u"QUIT :{0}".format(message))
 
     def msg(self, target, message):
-        """PRIVMSG"""
         self.send(u"PRIVMSG {0} :{1}".format(target, message))
 
+    def notice(self, target, message):
+        self.send(u"NOTICE {0} :{1}".format(target, message))
+
+    def me(self, target, message):
+        self.msg(target, u"{0}ACTION {1}{0}".format(CTCPCHR, message))
+
+    def ctcp(self, target, message):
+        self.msg(target, u"{0}{1}{0}".format(CTCPCHR, message))
+
+    def ctcp_reply(self, target, message):
+        self.notice(target, u"{0}{1}{0}".format(CTCPCHR, message))
+
+    def ctcp_ping(self, target):
+        tempo = int(time.time())
+        self.ctcp(target, u"PING %d" % (tempo,))
+
+    def ctcp_ping_reply(self, target, message):
+        self.ctcp_reply(target, u"PING %s" % message)
+
+    def nickserv_login(self):
+        self.msg("NickServ", u"IDENTIFY %s" % self.config['nickserv'])
+        
     # IRC EVENTS
     def on_001(self, event):
         self.join_all()
+
+    def on_433(self, event):
+        """Nickname is already in use"""
+        self.current_nickname += 1
+        if self.current_nickname >= len(self.nicknames):
+            self.current_nickname = 0
+        self.nick()
+
+    def on_PING(self, event):
+        self.send(u"PONG %s" % event.argstr)
+
+    def on_CTCP_PING(self, event):
+        self.ctcp_ping_reply(event.user.nickname, event.argstr)
+
+    def on_CTCP_VERSION(self, event):
+        self.ctcp_reply(event.user.nickname, u"VERSION EY YE")
+
+    def on_KICK(self, event):
+        channel = event.args[0]
+        self.join(channel)
 
     def on_cmd_saluta(self, event):
         event.reply(u"ciao")
@@ -341,4 +383,7 @@ class IRCConnection(object):
         task.start()
 
     def on_cmd_quitta(self, event):
-        self.quit()
+        if event.user.nickname == u"sand":
+            self.quit()
+        else:
+            self.msg(event.user.nickname, u"a pià nder culo!")
