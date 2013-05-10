@@ -6,6 +6,10 @@ from pinolo.bot import Bot
 from pinolo.config import read_config_file
 
 
+logging.basicConfig(level=logging.WARNING,
+                    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+                    datefmt="%H:%M:%S %d/%m/%y")
+
 usage = \
 """
 Usage: {0} [-v] [-d] [-h] [-V] -c filename

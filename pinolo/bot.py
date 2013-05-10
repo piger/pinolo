@@ -14,6 +14,7 @@ import re
 import socket
 import select
 import errno
+import time
 import logging
 import Queue
 import pinolo.plugins
@@ -117,6 +118,10 @@ class Bot(SignalDispatcher):
                 while len(conn_obj.out_buffer):
                     try:
                         sent = s.send(conn_obj.out_buffer)
+                        # Qui si potrebbe inserire una pausa artificiale
+                        # per evitare i flood? ma il flood anche sticazzi,
+                        # server *decenti* tipo inspircd non hanno più quel
+                        # problema.
                     except socket.error, e:
                         if e[0] == errno.EAGAIN:
                             break

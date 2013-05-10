@@ -18,6 +18,7 @@ import threading
 import Queue
 import urllib2
 from pinolo.tasks import TestTask
+from pinolo.cowsay import cowsay
 
 
 log = logging.getLogger(__name__)
@@ -387,3 +388,9 @@ class IRCConnection(object):
             self.quit()
         else:
             self.msg(event.user.nickname, u"a pià nder culo!")
+    
+    def on_cmd_cowsay(self, event):
+        log.debug("Launching command cowsay")
+        righe = cowsay("ciao amico")
+        for line in righe:
+            event.reply(line)
