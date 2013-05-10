@@ -1,48 +1,86 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-import warnings
-warnings.simplefilter('default')
-
-import sys
+# -*- encoding: utf-8 -*-
 import logging
-logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s %(name)s %(levelname)s %(message)s",
-                    datefmt="%H:%M:%S %d/%m/%y")
-logger = logging.getLogger('pinolo')
+import getopt
+import sys
+from pinolo.bot import Bot
+from pinolo.config import read_config_file
 
-from pinolo.options import Options
-from pinolo.config import read_config_files
-from pinolo.irc import BigHead
-from pinolo import FULL_VERSION
 
-optspec = """
-pinolo [options]
---
-c,config=   Read configuration options from file.
-d,debug     Enable debugging messages.
-unaz        Load 'unicode-nazi' library to debug unicode errors.
+usage = \
 """
-header = "%s, the naughty chat bot." % FULL_VERSION
+Usage: {0} [-v] [-d] [-h] [-V] -c filename
+    {0} [--verbose] [--debug] [--help] [--version] --config filename
+"""
 
+version = "pinolo x.y"
+
+
+def fatal(msg, code=1):
+    """Print an error message and exit the program"""
+    sys.stderr.write("ERROR: %s\n" % msg)
+    sys.exit(code)
+
+    
 def main():
-    print header
-    o = Options(optspec)
-    (options, flags, extra) = o.parse(sys.argv[1:])
+    """Command line entry point"""
+    opt_short = 'c:dvVh'
+    opt_long = ['config=', 'debug' , 'verbose', 'version', 'help']
+    
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], opt_short, opt_long)
+    except getopt.GetoptError, e:
+        fatal(e)
 
-    if not options.config:
-        o.fatal("You must specify a configuration file!")
-    if options.debug:
-        logger.setLevel(logging.DEBUG)
-    if options.unaz:
-        try:
-            import unicodenazi
-        except ImportError:
-            logger.warning("Cannot find unicode-nazi package!")
+    options = {
+        'config_file': None,
+        'verbose': False,
+        'debug': False,
+    }
+    
+    for name, value in opts:
+        if name in ('-h', '--help'):
+            print usage.format(sys.argv[0])
+            sys.exit(0)
+        elif name in ('-c', '--config'):
+            options['config_file'] = value
+        elif name in ('-d', '--debug'):
+            options['debug'] = True
+        elif name in ('-v', '--verbose'):
+            options['verbose'] = True
+        elif name in ('-V', '--version'):
+            print version
+            sys.exit(0)
 
-    config = read_config_files(options.config)
-    head = BigHead(config)
-    head.run()
+    # Check for mandatory options
+    if not options['config_file']:
+        fatal("You must specify a configuration file")
+
+    # Set the global logging level
+    root_log = logging.getLogger()
+    if options['debug']:
+        root_log.setLevel(logging.DEBUG)
+    elif options['verbose']:
+        root_log.setLevel(logging.INFO)
+    else:
+        root_log.setLevel(logging.WARNING)
+
+    start_bot(options)
+
+
+def start_bot(options):
+    """Launch the irc bot instance"""
+    config = read_config_file(options['config_file'])
+    bot = Bot(config)
+
+    # This try block is ugly but allow us to catch the interrupt signal
+    # and still do a clean exit.
+    try:
+        bot.start()
+    except KeyboardInterrupt:
+        print "\nInterrupt, exiting.\nPress CTRL-C again to force exit"
+        bot.quit()
+        bot.main_loop()
+
 
 if __name__ == '__main__':
     main()

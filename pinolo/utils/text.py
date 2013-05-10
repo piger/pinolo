@@ -36,6 +36,7 @@ def strip_html(text):
         return text # leave as is
     return re.sub("(?s)<[^>]*>|&#?\w+;", fixup, text)
 
+
 def decode_text(text):
     """Decode a given text string to an Unicode string.
 
@@ -49,6 +50,7 @@ def decode_text(text):
             continue
     # fallback
     return text.decode('utf-8', 'replace')
+
 
 def md5(text):
     """Calculate the MD5 hash for a given text, returning an hex string."""

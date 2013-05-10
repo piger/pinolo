@@ -1,7 +1,7 @@
-VERSION = (0, 9, 2)
+VERSION = (0, 10, 1)
 STR_VERSION = '.'.join([str(x) for x in VERSION])
 FULL_VERSION = "Pinolo-" + STR_VERSION
-SOURCE_URL = "http://code.dyne.org/?r=pinolo"
+SOURCE_URL = "http://git.spatof.org/pinolo.git"
 USER_AGENT = "Pinolo/%s +%s" % (STR_VERSION, SOURCE_URL)
 
 DEFAULT_DATABASE_FILENAME = 'db.sqlite'
