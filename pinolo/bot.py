@@ -145,6 +145,7 @@ class Bot(SignalDispatcher):
             # XXX should be empty the out buffer?
             if not conn_obj.connected:
                 log.error("Trying to write to a non connected socket!")
+                conn_obj.out_buffer = ""
                 continue
 
             while len(conn_obj.out_buffer):

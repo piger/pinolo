@@ -353,9 +353,14 @@ class IRCConnection(object):
 
     def nickserv_login(self):
         self.msg("NickServ", u"IDENTIFY %s" % self.config['nickserv'])
+        # XXX ugly
+        time.sleep(1)
         
     # IRC EVENTS
     def on_001(self, event):
+        if 'nickserv' in self.config:
+            self.nickserv_login()
+            
         self.join_all()
 
     def on_433(self, event):
