@@ -155,7 +155,7 @@ class IRCConnection(object):
 
         NOTE: outgoing data must not be unicode!
         """
-        buf = "{0}{1}".format(line, NEWLINE)
+        buf = u"{0}{1}".format(line, NEWLINE)
         if isinstance(line, unicode):
             buf = buf.encode('utf-8')
         self.out_buffer += buf

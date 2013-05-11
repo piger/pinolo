@@ -21,7 +21,7 @@ from whoosh.support.charset import accent_map
 
 stoplist = []
 stem_lang = "italian"
-analyzer = RegexTokenizer() | LowercaseFilter() | StopFilter(stoplist=stoplist) | CharsetFilter(accent_map) | PyStemmerFilter(stem_lang)
+my_analyzer = RegexTokenizer() | LowercaseFilter() | StopFilter(stoplist=stoplist) | CharsetFilter(accent_map) | PyStemmerFilter(stem_lang)
 
 
 class Quote(Base):
@@ -58,7 +58,7 @@ class QuotesPlugin(Plugin):
         if os.path.exists(self.db_path):
             self.ix = index.open_dir(self.db_path)
         else:
-            schema = Schema(author=TEXT(), quote=TEXT(),
+            schema = Schema(author=TEXT(), quote=TEXT(analyzer=my_analyzer),
                             creation_date=DATETIME(),
                             id=NUMERIC(stored=True))
             os.mkdir(self.db_path)
@@ -72,7 +72,7 @@ class QuotesPlugin(Plugin):
         session = Session()
         writer = self.ix.writer()
         for quote in Session.query(Quote).all():
-            self.index_quote(quote, commit=False)
+            self.index_quote(quote, writer, commit=False)
         writer.commit()
 
     def deactivate(self):
@@ -110,16 +110,29 @@ class QuotesPlugin(Plugin):
         session = Session()
         results_id = []
         with self.ix.searcher() as searcher:
-            query = QueryParser("quote", self.ix.schema).parse(event.text)
+            qp = QueryParser("quote", self.ix.schema)
+            query = qp.parse(event.text)
             results = searcher.search(query, limit=limit)
+            found = results.scored_length()
+            if not found:
+                event.reply(u"Non ho trovato un cazzo!")
+                corrected = searcher.correct_query(query, event.text)
+                if corrected.query != query:
+                    event.reply(u"Forse volevi cercare %s" % corrected.string)
+                return
+                
+            if results.has_exact_length():
+                event.reply(u"Ho trovato %d di %d risultati" % (found, len(results)))
+            else:
+                low = results.estimated_min_length()
+                high = results.estimated_length()
+                event.reply(u"Ho trovato %d tra circa %d risultati" % (found, low))
+                
             for result in results:
                 results_id.append(result['id'])
 
-        if not results_id:
-            event.reply(u"Non ho trovato una mazzetta")
-        else:
-            for quote in Session.query(Quote).filter(Quote.id.in_(results_id)).all():
-                event.reply(quote.quote)
+        for quote in Session.query(Quote).filter(Quote.id.in_(results_id)).all():
+            event.reply(u"(%i) %s" % (quote.id, quote.quote))
             
 
     def on_cmd_quote(self, event):
