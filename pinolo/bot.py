@@ -20,6 +20,7 @@ import Queue
 import pinolo.plugins
 from pinolo.signals import SignalDispatcher
 from pinolo.irc import IRCConnection
+from pinolo.database import init_db
 
 
 log = logging.getLogger()
@@ -37,6 +38,8 @@ class Bot(SignalDispatcher):
         self.connection_map = {}
         self.coda = Queue.Queue()
         self.plugins = []
+        self.db_uri = "sqlite:///%s" % os.path.join(
+            self.config["datadir"], "db.sqlite")
 
         for server in config['servers']:
             server_config = config['servers'][server]
@@ -46,6 +49,8 @@ class Bot(SignalDispatcher):
     def start(self):
         # Here we also load and activate the plugins
         self.load_plugins()
+        # XXX Database get initialized HERE.
+        self.db_engine = init_db(self.db_uri)
         self.activate_plugins()
 
         self.signal_emit("pre_connect")

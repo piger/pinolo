@@ -261,8 +261,10 @@ class IRCConnection(object):
                 try:
                     fn(event)
                 except Exception, e:
+                    import traceback
                     print "Exception in IRC callback {0}: {1}".format(
                         event.name, str(e))
+                    print traceback.format_exc()
 
     def check_in_buffer(self):
         """Check for complete lines in the input buffer, encode them in UTF-8
