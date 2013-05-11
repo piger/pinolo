@@ -11,3 +11,4 @@ xapian/
 db.sqlite
 pinolo.egg-info
 *.swp
+pinolo/data/prcd/prcd_*
