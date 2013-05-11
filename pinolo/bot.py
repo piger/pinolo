@@ -71,6 +71,9 @@ class Bot(SignalDispatcher):
         self.running = True
         self.main_loop()
 
+        # at last...
+        self.shutdown()
+
     def main_loop(self):
         """Main loop. Here we handle the network connections and buffers,
         dispatching events to the IRC clients when needed."""
@@ -252,3 +255,7 @@ class Bot(SignalDispatcher):
             plugin.deactivate()
             self.signal_emit("plugin_deactivated", plugin_name=plugin_name,
                              plugin_object=plugin)
+
+    def shutdown(self):
+        log.info("Bot shutdown")
+        self.deactivate_plugins()

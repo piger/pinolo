@@ -110,8 +110,7 @@ class MarkovBrain(object):
             return
 
         for context, next_word in self._sequence(tokens, self.context):
-            if context not in self.tokens:
-                self.tokens[context] = {}
+            self.tokens.setdefault(context, {})
             weight = self.tokens[context].get(next_word, 0)
             self.tokens[context][next_word] = (weight + 1)
 

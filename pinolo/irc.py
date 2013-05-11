@@ -94,8 +94,7 @@ class IRCEvent(object):
 
     @property
     def name(self):
-        # XXX occhio
-        return "on_" + self.command.encode('utf-8')
+        return "on_" + self.command
 
     def reply(self, message, prefix=True):
         assert isinstance(message, unicode) is True
@@ -256,8 +255,6 @@ class IRCConnection(object):
         self.dispatch_event(event)
 
     def dispatch_event(self, event):
-        logging.debug("Dispatching event: %r" % event)
-
         for handler in [self] + self.bot.plugins:
             if hasattr(handler, event.name):
                 fn = getattr(handler, event.name)
@@ -268,6 +265,7 @@ class IRCConnection(object):
                     print "Exception in IRC callback {0}: {1}".format(
                         event.name, str(e))
                     print traceback.format_exc()
+                    event.reply(u"Ho subito una exception, forse dovrei morire")
 
     def check_in_buffer(self):
         """Check for complete lines in the input buffer, encode them in UTF-8
