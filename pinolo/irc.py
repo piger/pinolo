@@ -131,7 +131,8 @@ class IRCConnection(object):
         self.active = True
         # nickname handling
         self.nicknames = self.bot.config['nicknames']
-        self.current_nickname = 0
+        self.nicknames_id = 0
+        self.current_nickname = None
         # la queue per i thread
         self.coda = self.bot.coda
 
@@ -294,8 +295,9 @@ class IRCConnection(object):
 
     def nick(self, nickname=None):
         if nickname is None:
-            nickname = self.nicknames[self.current_nickname]
+            nickname = self.nicknames[self.nicknames_id]
         self.send(u"NICK {0}".format(nickname))
+        self.current_nickname = nickname
 
     def ident(self):
         """Send an USER command.
@@ -362,9 +364,9 @@ class IRCConnection(object):
 
     def on_433(self, event):
         """Nickname is already in use"""
-        self.current_nickname += 1
-        if self.current_nickname >= len(self.nicknames):
-            self.current_nickname = 0
+        self.nicknames_id += 1
+        if self.nicknames_id >= len(self.nicknames):
+            self.nicknames_id = 0
         self.nick()
 
     def on_PING(self, event):

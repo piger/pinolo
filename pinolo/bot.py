@@ -159,9 +159,15 @@ class Bot(SignalDispatcher):
                 conn_obj.out_buffer = conn_obj.out_buffer[sent:]
 
     def check_queue(self):
-        """Check the thread queue"""
+        """Check the thread queue
+
+        THIS IS JUST A PROTOTYPE!
+        We should pass the IRC event in the Thread object, so we can later send
+        the output to the correct channel or nickname.
+        """
         try:
-            conn_name, goo = self.coda.get(False, 1)
+            # conn_name, goo = self.coda.get(False, 1)
+            conn_name, goo = self.coda.get_nowait()
         except Queue.Empty, e:
             pass
         else:
@@ -231,7 +237,8 @@ class Bot(SignalDispatcher):
             p_obj = plugin_class(self)
             p_obj.activate()
             self.plugins.append(p_obj)
-            COMMAND_ALIASES.update(plugin_class.COMMAND_ALIASES.items())
+            if hasattr(plugin_class, "COMMAND_ALIASES"):
+                COMMAND_ALIASES.update(plugin_class.COMMAND_ALIASES.items())
             self.signal_emit("plugin_activated", plugin_name=plugin_name,
                              plugin_object=p_obj)
 
