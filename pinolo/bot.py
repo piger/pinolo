@@ -25,6 +25,12 @@ from pinolo.database import init_db
 
 log = logging.getLogger()
 
+# Crontab interval in seconds
+CRONTAB_INTERVAL = 60
+
+# Timeout in seconds for the select() syscall
+SELECT_TIMEOUT = 1
+
 
 class Bot(SignalDispatcher):
     """Main Bot controller class.
@@ -68,82 +74,109 @@ class Bot(SignalDispatcher):
     def main_loop(self):
         """Main loop. Here we handle the network connections and buffers,
         dispatching events to the IRC clients when needed."""
+
+        self._last_crontab = time.time()
         
         while self.running:
-            # For the select() call we must create two distinct groups of sockets
-            # to watch for: all the active sockets must be checked for reading, but
-            # only sockets with a non empty out-buffer will be checked for writing.
-            in_sockets = []
-            for connection in self.connections.values():
-                if connection.active:
-                    in_sockets.append(connection.socket)
-                    
-            out_sockets = []
-            for connection in self.connections.values():
-                if len(connection.out_buffer):
-                    out_sockets.append(connection.socket)
+            # handle_network() will block for at most 1 second during
+            # the select() syscall
+            self.handle_network()
+            self.check_queue()
+            self.handle_cron()
 
-            # This is ugly. XXX
-            if not in_sockets:
-                log.error("No more active connections. exiting...")
-                self.running = False
-                continue
+    def handle_network(self):
+        # For the select() call we must create two distinct groups of sockets
+        # to watch for: all the active sockets must be checked for reading, but
+        # only sockets with a non empty out-buffer will be checked for writing.
+        in_sockets = []
+        for connection in self.connections.values():
+            if connection.active:
+                in_sockets.append(connection.socket)
 
-            # select() with 1 second timeout
-            readable, writable, exceptional = select.select(in_sockets, out_sockets, [], 1)
+        out_sockets = []
+        for connection in self.connections.values():
+            if len(connection.out_buffer):
+                out_sockets.append(connection.socket)
 
-            # Do the reading for the readable sockets
-            for s in readable:
-                
-                # We must read data from socket until the syscall returns EAGAIN;
-                # when the OS signals EAGAIN the socket would block reading.
-                while True:
-                    try:
-                        chunk = s.recv(512)
-                    except socket.error, e:
-                        if e[0] == errno.EAGAIN:
-                            break
-                        else:
-                            raise
-                    if chunk == '':
-                        self.connection_map[s].connected = False
-                        self.connection_map[s].active = False
-                        print "{0} disconnected".format(self.connection_map[s].name)
+        # This is ugly. XXX
+        if not in_sockets:
+            log.error("No more active connections. exiting...")
+            self.running = False
+            return
+
+        readable, writable, _ = select.select(in_sockets,
+                                              out_sockets,
+                                              [],
+                                              SELECT_TIMEOUT)
+
+        # Do the reading for the readable sockets
+        for s in readable:
+            conn_obj = self.connection_map[s]
+
+            # We must read data from socket until the syscall returns EAGAIN;
+            # when the OS signals EAGAIN the socket would block reading.
+            while True:
+                try:
+                    chunk = s.recv(512)
+                except socket.error, e:
+                    if e[0] == errno.EAGAIN:
                         break
                     else:
-                        self.connection_map[s].in_buffer += chunk
-                self.connection_map[s].check_in_buffer()
+                        raise
 
-            # scrive
-            for s, conn_obj in self.connection_map.iteritems():
-                # check if we got disconnected while reading from socket
-                if not conn_obj.connected:
-                    continue
+                if chunk == '':
+                    conn_obj.connected = False
+                    conn_obj.active = False
+                    print "{0} disconnected (EOF from server)".format(conn_obj.name)
+                    break
+                else:
+                    conn_obj.in_buffer += chunk
 
-                while len(conn_obj.out_buffer):
-                    try:
-                        sent = s.send(conn_obj.out_buffer)
-                        # Qui si potrebbe inserire una pausa artificiale
-                        # per evitare i flood? ma il flood anche sticazzi,
-                        # server *decenti* tipo inspircd non hanno più quel
-                        # problema.
-                    except socket.error, e:
-                        if e[0] == errno.EAGAIN:
-                            break
-                        else:
-                            raise
-                    conn_obj.out_buffer = conn_obj.out_buffer[sent:]
+            self.connection_map[s].check_in_buffer()
 
-            # controlla coda
-            try:
-                conn_name, goo = self.coda.get(False, 1)
-            except Queue.Empty, e:
-                pass
-            else:
-                for line in goo.split("\n"):
-                    self.connections[conn_name].msg("#test", line)
+        # scrive
+        for s in writable:
+            conn_obj = self.connection_map[s]
 
-        # end while
+            # check if we got disconnected while reading from socket
+            # XXX should be empty the out buffer?
+            if not conn_obj.connected:
+                log.error("Trying to write to a non connected socket!")
+                continue
+
+            while len(conn_obj.out_buffer):
+                try:
+                    sent = s.send(conn_obj.out_buffer)
+                    # Qui si potrebbe inserire una pausa artificiale
+                    # per evitare i flood? ma il flood anche sticazzi,
+                    # server *decenti* tipo inspircd non hanno più quel
+                    # problema.
+                except socket.error, e:
+                    if e[0] == errno.EAGAIN:
+                        break
+                    else:
+                        raise
+                conn_obj.out_buffer = conn_obj.out_buffer[sent:]
+
+    def check_queue(self):
+        """Check the thread queue"""
+        try:
+            conn_name, goo = self.coda.get(False, 1)
+        except Queue.Empty, e:
+            pass
+        else:
+            for line in goo.split("\n"):
+                self.connections[conn_name].msg("#test", line)
+
+    def handle_cron(self):
+        """A simple crontab that will be run approximatly every
+        CRONTAB_INTERVAL seconds."""
+        now = time.time()
+        
+        if (now - self._last_crontab) >= CRONTAB_INTERVAL:
+            logging.info("CRONTAB!")
+            self._last_crontab = now
+
     def quit(self):
         """Quit all connected clients"""
         print "Dicono che devo da quitta"
