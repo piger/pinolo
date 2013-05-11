@@ -164,12 +164,13 @@ class MarkovPlugin(Plugin):
             return
 
         if event.text.startswith(myname):
+            # strip our nickname from the sentence
             text = re.sub(r"^%s[:,]?\s+" % myname, u"", event.text)
             reply = self.markov.say(text)
             if reply:
                 event.reply(reply, prefix=False)
             else:
-                event.reply(u"eh no...")
+                event.reply(u"sono inibito e non so cosa dire")
         else:
             self.markov.learn(event.text)
             self._counter += 1

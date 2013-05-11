@@ -14,11 +14,9 @@ import re
 import socket
 import errno
 import time
-import threading
-import Queue
-import urllib2
 from pinolo.tasks import TestTask
 from pinolo.cowsay import cowsay
+from pinolo.casuale import get_random_quit, get_random_reply
 
 
 log = logging.getLogger(__name__)
@@ -328,7 +326,7 @@ class IRCConnection(object):
     def quit(self, message=None):
         """Quit from the server"""
         if message is None:
-            message = "Il cesso gallico"
+            message = get_random_quit()
         self.send(u"QUIT :{0}".format(message))
 
     def msg(self, target, message):
