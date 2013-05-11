@@ -48,6 +48,14 @@ class Quote(Base):
 
 
 class QuotesPlugin(Plugin):
+
+    COMMAND_ALIASES = {
+        'addq': 'addquote',
+        'q': 'quote',
+        'qq': 'search',
+        's': 'search',
+    }
+    
     def __init__(self, bot):
         super(QuotesPlugin, self).__init__(bot)
         self.db_path = os.path.join(self.bot.config['datadir'], "whoosh")
@@ -58,7 +66,8 @@ class QuotesPlugin(Plugin):
         if os.path.exists(self.db_path):
             self.ix = index.open_dir(self.db_path)
         else:
-            schema = Schema(author=TEXT(), quote=TEXT(analyzer=my_analyzer),
+            schema = Schema(author=TEXT(), 
+                            quote=TEXT(analyzer=my_analyzer),
                             creation_date=DATETIME(),
                             id=NUMERIC(stored=True))
             os.mkdir(self.db_path)
@@ -116,9 +125,6 @@ class QuotesPlugin(Plugin):
             found = results.scored_length()
             if not found:
                 event.reply(u"Non ho trovato un cazzo!")
-                corrected = searcher.correct_query(query, event.text)
-                if corrected.query != query:
-                    event.reply(u"Forse volevi cercare %s" % corrected.string)
                 return
                 
             if results.has_exact_length():

@@ -19,7 +19,7 @@ import logging
 import Queue
 import pinolo.plugins
 from pinolo.signals import SignalDispatcher
-from pinolo.irc import IRCConnection
+from pinolo.irc import IRCConnection, COMMAND_ALIASES
 from pinolo.database import init_db
 
 
@@ -172,6 +172,7 @@ class Bot(SignalDispatcher):
                 filename.startswith("_")):
                 continue
             plugin_name = os.path.splitext(filename)[0]
+            
             log.debug("Loading plugin %s" % plugin_name)
             try:
                 module = my_import("pinolo.plugins." + plugin_name)
@@ -197,6 +198,7 @@ class Bot(SignalDispatcher):
             p_obj = plugin_class(self)
             p_obj.activate()
             self.plugins.append(p_obj)
+            COMMAND_ALIASES.update(plugin_class.COMMAND_ALIASES.items())
             self.signal_emit("plugin_activated", plugin_name=plugin_name,
                              plugin_object=p_obj)
 

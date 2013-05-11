@@ -48,6 +48,8 @@ NEWLINE = '\r\n'
 # IRC CTCP 'special' character
 CTCPCHR = u'\x01'
 
+COMMAND_ALIASES = {}
+
 re_comma = re.compile(r'\s*,\s+')
 
 
@@ -241,8 +243,8 @@ class IRCConnection(object):
                     command = command.encode('utf-8', 'replace')
 
                 # Espande il comando con gli alias
-                # command = "cmd_" + COMMAND_ALIASES.get(command, command)
-                command = "cmd_{0}".format(command)
+                command = "cmd_" + COMMAND_ALIASES.get(command, command)
+                # command = "cmd_{0}".format(command)
 
         else:
             argstr, text = line, u""
