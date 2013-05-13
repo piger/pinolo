@@ -26,9 +26,10 @@ class Plugin(object):
             if name != "Plugin":
                 registry.append((name, cls))
 
-    def __init__(self, bot):
+    def __init__(self, bot, enabled=True):
         """Initialize the plugin instance with a pointer to the bot object"""
         self.bot = bot
+        self.enabled = enabled
 
     def activate(self):
         """Activate the plugin"""

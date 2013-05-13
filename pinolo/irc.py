@@ -267,17 +267,21 @@ class IRCConnection(object):
 
     def dispatch_event(self, event):
         log.debug("Dispatching %r" % event)
-        
-        for handler in [self] + self.bot.plugins:
-            if hasattr(handler, event.name):
-                fn = getattr(handler, event.name)
-                try:
-                    fn(event)
-                except Exception, e:
-                    import traceback
-                    print "Exception in IRC callback {0}: {1}".format(
-                        event.name, str(e))
-                    print traceback.format_exc()
+
+        # Check only enabled plugins
+        plugins = [plugin for plugin in self.bot.plugins if plugin.enabled]
+        for handler in [self] + plugins:
+            if not hasattr(handler, event.name):
+                continue
+
+            fn = getattr(handler, event.name)
+            try:
+                fn(event)
+            except Exception, e:
+                import traceback
+                print "Exception in IRC callback {0}: {1}".format(
+                    event.name, str(e))
+                print traceback.format_exc()
 
     def check_in_buffer(self):
         """Check for complete lines in the input buffer, encode them in UTF-8
