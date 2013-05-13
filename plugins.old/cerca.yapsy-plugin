@@ -1,8 +1,0 @@
-[Core]
-Name = Google Search
-Module = cerca
-
-[Documentation]
-Description = Google Search
-Author = sand
-Version = 0.1

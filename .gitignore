@@ -1,14 +1,9 @@
 *.pyc
 scripts/fortune/fortune.*
 pinolo.cfg
-megahal.brn
-megahal.dic
-megahal.log
-megahal.trn
-megahal.txt
-prcd/*.txt
-xapian/
 db.sqlite
 pinolo.egg-info
 *.swp
 pinolo/data/prcd/prcd_*
+*~
+datadir/

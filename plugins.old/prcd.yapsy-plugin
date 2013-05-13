@@ -1,8 +1,0 @@
-[Core]
-Name = PRCD Support
-Module = prcd
-
-[Documentation]
-Description = PRCD with cowsay
-Author = sand
-Version = 0.1

@@ -1,8 +1,0 @@
-[Core]
-Name = Xapian Support
-Module = xapiansearch
-
-[Documentation]
-Description = Xapian search and database support
-Author = sand
-Version = 0.1

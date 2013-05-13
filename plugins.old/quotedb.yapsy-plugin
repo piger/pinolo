@@ -1,8 +1,0 @@
-[Core]
-Name = Quote Database
-Module = quotedb
-
-[Documentation]
-Description = The mighty Quotes Database
-Author = sand
-Version = 0.2
