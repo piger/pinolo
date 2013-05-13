@@ -218,7 +218,7 @@ class IRCConnection(object):
             return
 
         data = match.groupdict()
-        print data
+        log.debug("IRC msg parsing: %r" % (data,))
         
         if data["source"] is None:
             nickname, ident, hostname = (None, None, None)
