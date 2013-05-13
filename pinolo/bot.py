@@ -46,6 +46,8 @@ class Bot(SignalDispatcher):
         self.plugins = []
         self.db_uri = "sqlite:///%s" % os.path.join(
             self.config["datadir"], "db.sqlite")
+        self.db_engine = None
+        self.running = False
 
         for server in config['servers']:
             server_config = config['servers'][server]
