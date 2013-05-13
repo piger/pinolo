@@ -197,6 +197,7 @@ class IRCConnection(object):
         buf = u"{0}{1}".format(line, NEWLINE)
         if isinstance(line, unicode):
             buf = buf.encode('utf-8')
+        log.debug(">>> %r" % buf)
         self.out_buffer += buf
 
     def parse_line(self, line):
