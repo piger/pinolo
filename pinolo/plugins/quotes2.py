@@ -132,8 +132,11 @@ class QuotesPlugin(Plugin):
             else:
                 low = results.estimated_min_length()
                 high = results.estimated_length()
-                event.reply(u"Ho trovato %d tra circa %d risultati" % (found, low))
-                
+                if low == high:
+                    event.reply(u"Ho trovato %d tra circa %d risultati" % (found, low))
+                else:
+                    event.reply(u"Ho trovato %d tra circa %d/%d risultati" % (found, low, high))
+         
             for result in results:
                 results_id.append(result['id'])
 
