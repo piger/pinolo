@@ -3,6 +3,8 @@ import codecs
 import pkg_resources
 import logging
 import random
+from pinolo.cowsay import cowsay
+from pinolo.plugins import Plugin
 
 
 log = logging.getLogger('pinolo.prcd')
@@ -29,7 +31,8 @@ def read_prcd_files():
         category = filename[filename.index('_')+1:filename.index('.')]
         category = unicode(category, 'utf-8', 'replace')
         # fd = pkg_resources.resource_stream(__name__, "data/prcd/%s" % filename)
-        path = pkg_resources.resource_filename(__name__, "data/prcd/%s" % filename)
+        path = pkg_resources.resource_filename("pinolo", "data/prcd/%s" % filename)
+        log.debug("Opening PRCD file %s" % path)
         try:
             with codecs.open(path, "rb", encoding="utf-8") as fd:
                 lines = fd.readlines()
@@ -39,13 +42,36 @@ def read_prcd_files():
 
     return moccoli
 
-moccoli = read_prcd_files()
-prcd_categories = moccoli.keys()
 
+class PrcdPlugin(Plugin):
+    def activate(self):
+        self.moccoli = read_prcd_files()
+        self.prcd_categories = self.moccoli.keys()
+        if not self.moccoli or not self.prcd_categories:
+            log.error("No PRCD files, deactivating prcd plugin")
+            self.enabled = False
 
-def moccolo_random(category=None):
-    if not category:
-        category = random.choice(moccoli.keys())
-    if not category in moccoli:
-        return (None, None)
-    return (category, random.choice(moccoli[category]))
+    def moccolo_random(self, category=None):
+        if not category:
+            category = random.choice(self.prcd_categories)
+        return (category, random.choice(self.moccoli[category]))
+
+    def on_cmd_prcd(self, event):
+        cat, moccolo = self.moccolo_random(event.text or None)
+        if not moccolo:
+            event.reply(u"La categoria non esiste!")
+        else:
+            event.reply(u"(%s) %s" % (cat, moccolo))
+
+    def on_cmd_prcd_list(self, event):
+        event.reply(u', '.join(self.prcd_categories))
+
+    def on_cmd_PRCD(self, event):
+        cat, moccolo = self.moccolo_random(event.text or None)
+        if not moccolo:
+            event.reply(u"La categoria non esiste!")
+        else:
+            output = cowsay(moccolo)
+            for line in output:
+                if line:
+                    event.reply(line, prefix=False)
