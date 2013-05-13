@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
-"""eztv.it search plugin"""
-import re
+"""
+    pinolo.plugins.eztv
+    ~~~~~~~~~~~~~~~~~~~
+
+    Eztv search wrapper.
+
+    :copyright: (c) 2013 Daniel Kertesz
+    :license: BSD, see LICENSE for more details.
+"""
 import requests
 from bs4 import BeautifulSoup
 from pinolo.plugins import Plugin
@@ -57,4 +64,5 @@ class EztvPlugin(Plugin):
             return
 
         for result in results[:MAX_RESULTS]:
-            event.reply(result)
+            # event.reply(result)
+            event.client.notice(event.user.nickname, result)
