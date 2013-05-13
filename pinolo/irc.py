@@ -40,6 +40,21 @@ usermask_re = re.compile(r'''
                          (\S+)
                          ''', re.VERBOSE)
 
+r_ircline = re.compile(r"""
+    (?:
+        :(?P<source>\S+)\s+
+        |
+    )
+    (?P<command>\S+)
+    \s+
+    (?P<args>[^:$]+)?
+    (?:
+        $
+        |
+        \s*:(?P<text>.*)
+    )
+    """, re.VERBOSE)
+
 # IRC newline
 NEWLINE = '\r\n'
 
@@ -65,7 +80,7 @@ def parse_usermask(usermask):
 
 
 class IRCUser(object):
-    def __init__(self, nickname, ident, hostname):
+    def __init__(self, nickname, ident=None, hostname=None):
         self.nickname = nickname
         self.ident = ident
         self.hostname = hostname
@@ -107,8 +122,26 @@ class IRCEvent(object):
             self.client.msg(self.nickname, message)
 
     def __repr__(self):
-        return u"<IRCEvent(client=%r, user=%r, command=%r, args=%r)>" % (
-            self.client, self.user, self.command, self.args)
+        return u"<IRCEvent(client=%r, user=%r, command=%r, argstr=%r, args=%r, text=%r)>" % (
+            self.client, self.user, self.command, self.argstr,
+            self.args, self.text)
+
+
+class Channel(object):
+    def __init__(self, name):
+        self.name = name
+        self.users = {}
+
+    def add_user(self, nickname, ident=None, address=None):
+        user = IRCUser(nickname, ident, address)
+        self.users[nickname] = user
+
+    def del_user(self, nickname):
+        if nickname in self.users:
+            del self.users[nickname]
+
+    def __repr__(self):
+        return "<Channel(%s)>" % self.name
 
 
 class IRCConnection(object):
@@ -132,6 +165,9 @@ class IRCConnection(object):
         self.current_nickname = None
         # la queue per i thread
         self.coda = self.bot.coda
+
+        # state
+        self.channels = {}
 
     def __repr__(self):
         return "<IRCConnection(%s)>" % self.name
@@ -172,84 +208,57 @@ class IRCConnection(object):
 
         If the prefix is missing from the message, it is assumed to
         have originated from the connection from which it was received.
-        
-        :localhost NOTICE AUTH :TclIRCD-0.1a initialized, welcome.
-        NICK foobar
-        USER sand 8 * :peto peto peto
-        :localhost 001 foobar :Welcome to this IRC server foobar
-        :localhost 002 foobar :Your host is localhost, running version TclIRCD-0.1a
-        :localhost 003 foobar :This server was created ... I don't know
-        :localhost 004 foobar localhost TclIRCD-0.1a aAbBcCdDeEfFGhHiIjkKlLmMnNopPQrRsStUvVwWxXyYzZ0123459*@ bcdefFhiIklmnoPqstv
-        JOIN #test
-        :foobar!~sand@localhost JOIN :#test
-        :localhost 331 foobar #test :There isn't a topic.
-        :localhost 353 foobar = #test :@foobar
-        :localhost 366 foobar #test :End of /NAMES list.
-
-        PRIVMSG:
-        :petello!~petone@localhost PRIVMSG petone :ciao a te
-
-        PING:
-        :sand!~sand@localhost PRIVMSG petone :PING 1368113613 585318
         """
-        print "<<< %s" % (line,)
+        log.debug("<<< %r" % line)
 
-        if line.startswith(u":"):
-            # IRC message with prefix
-            source, line = line[1:].split(u" ", 1)
-            nickname, ident, hostname = parse_usermask(source)
-        else:
-            # IRC message without prefix (e.g. server's PING)
+        match = r_ircline.match(line)
+        if match is None:
+            log.error("Invalid IRC line: %r" % line)
+            return
+
+        data = match.groupdict()
+        print data
+        
+        if data["source"] is None:
             nickname, ident, hostname = (None, None, None)
-
-        # IRC command (e.g. PRIVMSG)
-        # command = PRIVMSG
-        # line = petone :ciao a te
-        # where "petone" is the target (so it's an argstr) and ":ciao a te"
-        # is the command text
-        command, line = line.split(u" ", 1)
-        # convert command to a string object since it will be used to lookup
-        # the handler function (and thus can't be a unicode string)
-        command = command.encode('utf-8', 'replace')
-
-        # IRC command arguments and text
-        # args will be a list of command arguments and text will be the command
-        # text, if any.
-        if u" :" in line:
-            argstr, text = line.split(u" :", 1)
-
-            # CTCP
-            if (text.startswith(CTCPCHR) and text.endswith(CTCPCHR)):
-                text = text[1:-1]
-                old_command = command
-
-                if u" " in text:
-                    command, argstr = text.split(u" ", 1)
-                else:
-                    command, argstr = text, u""
-                text = u""
-
-                if old_command == "PRIVMSG":
-                    command = "CTCP_" + command
-                else:
-                    command = "CTCP_REPLY_" + command
-
-            # E' un "comando" del Bot
-            elif text.startswith(u'!'):
-                try:
-                    command, text = text[1:].split(u' ', 1)
-                except ValueError:
-                    command, text = text[1:], u''
-                finally:
-                    command = command.encode('utf-8', 'replace')
-
-                # Espande il comando con gli alias
-                command = "cmd_" + COMMAND_ALIASES.get(command, command)
-                # command = "cmd_{0}".format(command)
-
         else:
-            argstr, text = line, u""
+            nickname, ident, hostname = parse_usermask(data["source"])
+        command = data["command"].encode("utf-8", "replace")
+        argstr = data["args"] or ""
+        argstr = argstr.strip()
         args = argstr.split()
+        text = data["text"] or ""
+
+        # CTCP
+        if (text.startswith(CTCPCHR) and text.endswith(CTCPCHR)):
+            text = text[1:-1]
+            old_command = command
+
+            # we use "args" and "argstr" for CTCP arguments
+            ctcp_args = text.split()
+            if not ctcp_args:
+                return
+            command = ctcp_args.pop(0).encode("utf-8", "replace")
+            args = ctcp_args[:]
+            argstr = " ".join(args)
+
+            if old_command == "PRIVMSG":
+                command = "CTCP_" + command
+            else:
+                command = "CTCP_REPLY_" + command
+
+        # E' un "comando" del Bot
+        elif text.startswith(u'!'):
+            try:
+                command, text = text[1:].split(u' ', 1)
+            except ValueError:
+                command, text = text[1:], u''
+            finally:
+                command = command.encode('utf-8', 'replace')
+
+            # Espande il comando con gli alias
+            command = "cmd_" + COMMAND_ALIASES.get(command, command)
+            # command = "cmd_{0}".format(command)
 
         user = IRCUser(nickname, ident, hostname)
         event = IRCEvent(self, user, command, argstr, args, text)
@@ -268,7 +277,6 @@ class IRCConnection(object):
                     print "Exception in IRC callback {0}: {1}".format(
                         event.name, str(e))
                     print traceback.format_exc()
-                    event.reply(u"Ho subito una exception, forse dovrei morire")
 
     def check_in_buffer(self):
         """Check for complete lines in the input buffer, encode them in UTF-8
@@ -394,20 +402,16 @@ class IRCConnection(object):
         self.ctcp_reply(event.user.nickname, u"VERSION EY YE")
 
     def on_KICK(self, event):
-        channel = event.args[0]
-        target = event.args[1]
+        channel = event.args[0].encode("utf-8", "replace")
+        target = event.args[1].encode("utf-8", "replace")
         
         if target == self.current_nickname:
             self.join(channel)
+        else:
+            self.channels[channel].del_user(target)
 
     def on_NOTICE(self, event):
-        """This will handle a bunch of stuff.
-
-        14:42:54 [Azzurra] -NickServ(service@azzurra.org)- Password accepted for sand. You are now identified.
-
-        <<< :pinolo MODE pinolo :+r
-        <<< :NickServ!service@azzurra.org NOTICE pinolo :Password accepted for pinolo. You are now identified.
-        """
+        """Handle NOTICEs."""
         # Skip message from ourself
         if event.user.nickname == self.current_nickname:
             return
@@ -416,6 +420,37 @@ class IRCConnection(object):
             if u"You are now identified" in event.text:
                 self.after_nickserv()
 
+    def on_353(self, event):
+        """RPL_NAMREPLY - reply to a NAMES command"""
+        nicks = event.text.encode('utf-8', 'replace').split()
+        channel_name = event.args[-1].encode('utf-8', 'replace')
+        
+        for nick in nicks:
+            self.channels[channel_name].add_user(nick)
+
+    def on_JOIN(self, event):
+        name = event.text.encode('utf-8', 'replace')
+        
+        if event.user.nickname == self.current_nickname:
+            channel = Channel(name)
+            self.channels[name] = channel
+            log.info("Joined %s" % name)
+        else:
+            self.channels[name].add_user(event.user.nickname)
+
+    def on_PART(self, event):
+        name = event.args[0].encode("utf-8", "replace")
+        if event.user.nickname == self.current_nickname:
+            if name in self.channels:
+                del self.channels[name]
+        else:
+            self.channels[name].del_user(event.user.nickname)
+
+    def on_QUIT(self, event):
+        if event.user.nickname != self.current_nickname:
+            for channel_name in self.channels:
+                self.channels[channel_name].del_user(event.user.nickname)
+    
 #    def on_cmd_saluta(self, event):
 #        event.reply(u"ciao")
 
@@ -433,17 +468,13 @@ class IRCConnection(object):
     def on_cmd_joina(self, event):
         self.join_all()
 
-    def on_MODE(self, event):
-        """Qui segnala il MODE +r; "+r" e' in event.text
-
-        <<< :pinolo MODE pinolo :+r
-        """
-        target = event.args[0]
-        if target == self.current_nickname:
-            pass
-    
 #    def on_cmd_cowsay(self, event):
 #        log.debug("Launching command cowsay")
 #        righe = cowsay("ciao amico")
 #        for line in righe:
 #            event.reply(line)
+
+    def on_cmd_dimmi(self, event):
+        channel_name = event.args[0].encode('utf-8', 'replace')
+        users = u", ".join(self.channels[channel_name].users.keys())
+        event.reply(u"ci sono questi: %s" % (users,))
