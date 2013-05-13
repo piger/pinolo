@@ -19,20 +19,26 @@ class Task(threading.Thread):
     """A task is an execution unit that will be run in a separate thread
     that should not block tha main thread (handling irc connections).
     """
-    def __init__(self, connection_name, queue, *args, **kwargs):
-        self.connection_name = connection_name
-        self.queue = queue
+    def __init__(self, event, *args, **kwargs):
+        self.event = event
         super(Task, self).__init__(*args, **kwargs)
+
+    @property
+    def queue(self):
+        return self.event.client.bot.coda
+
+    @property
+    def reply(self):
+        return self.event.reply
 
     def run(self):
         raise RuntimeError("Must be implemented!")
         
-    def put_results(self, data):
+    def put_results(self, *data):
         """Task output will be sent to the main thread via the configured
         queue; data should be a string containing the full output, that will
         later be splitted on newlines."""
-        unit = (self.connection_name, data)
-        self.queue.put(unit)
+        self.queue.put(tuple(data))
 
 
 class TestTask(Task):

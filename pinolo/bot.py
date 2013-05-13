@@ -172,13 +172,12 @@ class Bot(SignalDispatcher):
         the output to the correct channel or nickname.
         """
         try:
-            # conn_name, goo = self.coda.get(False, 1)
-            conn_name, goo = self.coda.get_nowait()
+            data = list(self.coda.get_nowait())
         except Queue.Empty, e:
             pass
         else:
-            for line in goo.split("\n"):
-                self.connections[conn_name].msg("#test", line)
+            fn = data.pop(0)
+            fn(*data)
 
     def handle_cron(self):
         """A simple crontab that will be run approximatly every

@@ -8,14 +8,32 @@
     :copyright: (c) 2013 Daniel Kertesz
     :license: BSD, see LICENSE for more details.
 """
+import re
 import requests
 from bs4 import BeautifulSoup
 from pinolo.plugins import Plugin
+from pinolo.tasks import Task
 
 
+# URL with search form
 SEARCH_URL = "http://eztv.it/search/"
+
+# Maximum number of results returned
 MAX_RESULTS = 6
 
+
+class EztvTask(Task):
+    def run(self):
+        results = search_eztv(self.event.text)
+        
+        if not results:
+            self.put_results(self.reply, u"Non ho trovato niente")
+            return
+        else:
+            for result in results[:MAX_RESULTS]:
+                self.put_results(self.event.client.notice,
+                                 self.event.user.nickname,
+                                 result)
 
 def search_eztv(text):
     payload = {
@@ -57,12 +75,6 @@ class EztvPlugin(Plugin):
     def on_cmd_eztv_search(self, event):
         if not event.text:
             return
-        results = search_eztv(event.text)
 
-        if not results:
-            event.reply(u"Non ho trovato una cippa di cazzo, sory")
-            return
-
-        for result in results[:MAX_RESULTS]:
-            # event.reply(result)
-            event.client.notice(event.user.nickname, result)
+        t = EztvTask(event)
+        t.start()
