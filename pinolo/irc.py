@@ -133,6 +133,9 @@ class IRCConnection(object):
         # la queue per i thread
         self.coda = self.bot.coda
 
+    def __repr__(self):
+        return "<IRCConnection(%s)>" % self.name
+
     def connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setblocking(0)
@@ -253,6 +256,8 @@ class IRCConnection(object):
         self.dispatch_event(event)
 
     def dispatch_event(self, event):
+        log.debug("Dispatching %r" % event)
+        
         for handler in [self] + self.bot.plugins:
             if hasattr(handler, event.name):
                 fn = getattr(handler, event.name)
@@ -287,9 +292,14 @@ class IRCConnection(object):
             else:
                 self.parse_line(line)
 
+    def after_nickserv(self):
+        self.join_all()
+
     # IRC COMMANDS
 
     def nick(self, nickname=None):
+        """Send a NICK command"""
+        
         if nickname is None:
             nickname = self.nicknames[self.nicknames_id]
         self.send(u"NICK {0}".format(nickname))
@@ -358,10 +368,14 @@ class IRCConnection(object):
         
     # IRC EVENTS
     def on_001(self, event):
+        """Server "welcome".
+
+        If we have to login to NickServ we delay the join of all channels.
+        """
         if 'nickserv' in self.config:
             self.nickserv_login()
-            
-        self.join_all()
+        else:
+            self.join_all()
 
     def on_433(self, event):
         """Nickname is already in use"""
@@ -381,23 +395,55 @@ class IRCConnection(object):
 
     def on_KICK(self, event):
         channel = event.args[0]
-        self.join(channel)
+        target = event.args[1]
+        
+        if target == self.current_nickname:
+            self.join(channel)
 
-    def on_cmd_saluta(self, event):
-        event.reply(u"ciao")
+    def on_NOTICE(self, event):
+        """This will handle a bunch of stuff.
 
-    def on_cmd_getta(self, event):
-        task = TestTask(self.name, self.coda)
-        task.start()
+        14:42:54 [Azzurra] -NickServ(service@azzurra.org)- Password accepted for sand. You are now identified.
+
+        <<< :pinolo MODE pinolo :+r
+        <<< :NickServ!service@azzurra.org NOTICE pinolo :Password accepted for pinolo. You are now identified.
+        """
+        # Skip message from ourself
+        if event.user.nickname == self.current_nickname:
+            return
+
+        if event.user.nickname == "NickServ":
+            if u"You are now identified" in event.text:
+                self.after_nickserv()
+
+#    def on_cmd_saluta(self, event):
+#        event.reply(u"ciao")
+
+#    def on_cmd_getta(self, event):
+#        task = TestTask(self.name, self.coda)
+#        task.start()
 
     def on_cmd_quitta(self, event):
         if event.user.nickname == u"sand":
-            self.quit()
+            # self.quit()
+            self.bot.quit()
         else:
             self.msg(event.user.nickname, u"a pià nder culo!")
+
+    def on_cmd_joina(self, event):
+        self.join_all()
+
+    def on_MODE(self, event):
+        """Qui segnala il MODE +r; "+r" e' in event.text
+
+        <<< :pinolo MODE pinolo :+r
+        """
+        target = event.args[0]
+        if target == self.current_nickname:
+            pass
     
-    def on_cmd_cowsay(self, event):
-        log.debug("Launching command cowsay")
-        righe = cowsay("ciao amico")
-        for line in righe:
-            event.reply(line)
+#    def on_cmd_cowsay(self, event):
+#        log.debug("Launching command cowsay")
+#        righe = cowsay("ciao amico")
+#        for line in righe:
+#            event.reply(line)

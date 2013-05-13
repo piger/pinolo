@@ -184,7 +184,6 @@ class Bot(SignalDispatcher):
         now = time.time()
         
         if (now - self._last_crontab) >= CRONTAB_INTERVAL:
-            logging.info("CRONTAB!")
             self._last_crontab = now
 
     def quit(self):

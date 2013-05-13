@@ -12,8 +12,10 @@ setup(
     # xapian!
     install_requires=[
         "SQLAlchemy==0.7.10",
-        "requests==0.14.0",
-        "beautifulsoup4==4.1.3"
+        "PyStemmer==1.3.0",
+        "Whoosh==2.3.2",
+        # "requests==0.14.0",
+        # "beautifulsoup4==4.1.3"
     ],
     setup_requires=[],
     zip_safe=False,

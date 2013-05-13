@@ -2,6 +2,7 @@
 import logging
 import getopt
 import sys
+import os
 from pinolo.bot import Bot
 from pinolo.config import read_config_file
 
@@ -43,7 +44,7 @@ def main():
     
     for name, value in opts:
         if name in ('-h', '--help'):
-            print usage.format(sys.argv[0])
+            print usage.format(os.path.basename(sys.argv[0]))
             sys.exit(0)
         elif name in ('-c', '--config'):
             options['config_file'] = value
