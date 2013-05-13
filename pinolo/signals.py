@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 # Heavily inspired by signals.py from ranger (file manager).
 import weakref
 
