@@ -115,6 +115,10 @@ class MarkovBrain(object):
             self.tokens[context][next_word] = (weight + 1)
 
     def say(self, seed=None, max_words=50):
+        # Empty database, we can't talk.
+        if not self.tokens:
+            return
+            
         starter = random.choice(self.tokens.keys())
         sequence = deque(tuple(starter))
         sentence = list(starter)
@@ -177,6 +181,3 @@ class MarkovPlugin(Plugin):
             if self._counter >= self.SAVE_EVERY:
                 self._counter = 0
                 self.markov.save()
-
-    def on_cmd_save(self, event):
-        self.markov.save()
