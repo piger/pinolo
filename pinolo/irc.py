@@ -393,7 +393,10 @@ class IRCConnection(object):
         self.nick()
 
     def on_PING(self, event):
-        self.send(u"PONG %s" % event.argstr)
+        if event.text:
+            self.send(u"PONG %s" % event.text)
+        else:
+            seld.send(u"PONG foobar")
 
     def on_CTCP_PING(self, event):
         self.ctcp_ping_reply(event.user.nickname, event.argstr)
