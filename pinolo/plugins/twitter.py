@@ -11,6 +11,7 @@
 import re
 import requests
 import logging
+from functools import partial
 from pinolo.plugins import Plugin
 from pinolo.tasks import Task
 
@@ -42,7 +43,8 @@ class TwitterTask(Task):
             return
 
         reply = u'"%s" @%s: %s' % (name, username, text)
-        self.put_results(self.event.reply, reply)
+        reply_fn = partial(self.event.reply, prefix=False)
+        self.put_results(reply_fn, reply)
             
 
 class TwitterPlugin(Plugin):

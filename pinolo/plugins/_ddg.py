@@ -1,14 +1,28 @@
 # -*- coding: utf-8 -*-
-"""DuckDuckGo plugin"""
+"""
+    pinolo.plugins.ddg
+    ~~~~~~~~~~~~~~~~~~
+
+    DuckDuckGo API client (WIP).
+
+    :copyright: (c) 2013 Daniel Kertesz
+    :license: BSD, see LICENSE for more details.
+"""
 import urllib
 import json
+import requests
 from pinolo.plugins import Plugin
-from pinolo.utils.network import gevent_url_open
+from pinolo.tasks import Task
+from pinolo import USER_AGENT
 
 
+# URL for search API
 SEARCH_URL = "http://api.duckduckgo.com/"
+
 MAX_RESULTS = 5
+
 SEARCH_LANG = "it"
+
 TYPES = {
     u'A': u'article',
     u'D': u'disambiguation',
@@ -27,15 +41,10 @@ def search_ddg(text):
         'no_redirect': '1',
     })
 
-    url = SEARCH_URL + "?" + query
-    response = gevent_url_open(url)
-    headers = response.headers
-    if 'content-type' in headers:
-        encoding = headers['content-type'].split('charset=')[-1]
-        data = unicode(response.read(), encoding)
-    else:
-        data = response.read()
-        data.decode('utf-8', 'replace')
+    payload = dict(q=text, format="json", no_html="1", no_redirect="1")
+    response = requests.get(SEARCH_URL, params=payload)
+    data = response.json()
+
     r = json.loads(data)
     # toglie i value 'empty'
     # pr = dict((k, v) for k,v in r.items() if v)

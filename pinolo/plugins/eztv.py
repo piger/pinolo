@@ -13,6 +13,7 @@ import requests
 from bs4 import BeautifulSoup
 from pinolo.plugins import Plugin
 from pinolo.tasks import Task
+from pinolo import USER_AGENT
 
 
 # URL with search form
@@ -39,8 +40,9 @@ def search_eztv(text):
     payload = {
         'SearchString1': text
     }
+    headers = {"User-Agent": USER_AGENT}
 
-    r = requests.post(SEARCH_URL, data=payload)
+    r = requests.post(SEARCH_URL, data=payload, headers=headers)
     soup = BeautifulSoup(r.text)
     results = []
 
