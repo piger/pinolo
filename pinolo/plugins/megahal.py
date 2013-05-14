@@ -49,7 +49,7 @@ __license__ = 'BSD'
 log = logging.getLogger(__name__)
 
 r_irclog = re.compile(r"^\[[^]]+\]\s+")
-r_ircsubject = re.compile(r"<[^>]+>")
+r_ircsubject = re.compile(r"<[^>]+>\s+")
 
 DEFAULT_ORDER = 5
 DEFAULT_BRAINFILE = os.path.join(os.environ.get('HOME', ''), '.pymegahal-brain')
@@ -470,6 +470,7 @@ class MegaHAL(object):
                 if not line.startswith("<"):
                     continue
                 line = r_ircsubject.sub("", line)
+                print "Learning %r" % line
                 self.learn(line)
 
     def learn(self, phrase):
