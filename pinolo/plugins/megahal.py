@@ -181,7 +181,7 @@ class Brain(object):
         return self.db['order']
 
     @staticmethod
-    def old_get_words_from_phrase(phrase):
+    def get_words_from_phrase(phrase):
         phrase = phrase.upper()
         words = []
         if phrase:
@@ -226,13 +226,6 @@ class Brain(object):
                 words.append('.')
             elif words[-1][-1] not in '!.?':
                 words[-1] = '.'
-        return words
-
-    @staticmethod
-    def get_words_from_phrase(phrase):
-        words = [word.upper() for word in phrase.split() if word]
-        if not words[-1].endswith("."):
-            words.append(".")
         return words
 
     def communicate(self, phrase, learn=True, reply=True):
