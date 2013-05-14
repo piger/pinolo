@@ -28,6 +28,7 @@ setup(
     entry_points={
         "console_scripts": [
             "pinolo = pinolo.main:main",
+            "pinolo-train = pinolo.plugins.megahal:cmdline",
         ],
     },
 )

@@ -24,7 +24,7 @@ def read_config_file(filename):
     config = dict(cfp.items("general"))
     config['servers'] = {}
 
-    for opt in ('nicknames',):
+    for opt in ('nicknames', 'disabled_plugins'):
         if opt in config:
             config[opt] = r_comma.split(config[opt])
 

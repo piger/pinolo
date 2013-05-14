@@ -215,6 +215,10 @@ class Bot(SignalDispatcher):
                 filename.startswith("_")):
                 continue
             plugin_name = os.path.splitext(filename)[0]
+
+            if plugin_name in self.config.get("disabled_plugins", []):
+                log.info("Not loading disabled plugin (from config): %s" % plugin_name)
+                continue
             
             log.debug("Loading plugin %s" % plugin_name)
             try:
