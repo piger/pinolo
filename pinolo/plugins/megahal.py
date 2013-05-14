@@ -230,7 +230,7 @@ class Brain(object):
 
     @staticmethod
     def get_words_from_phrase(phrase):
-        words = [word for word in phrase.split() if word]
+        words = [word.upper() for word in phrase.split() if word]
         if not words[-1].endswith("."):
             words.append(".")
         return words
@@ -571,4 +571,8 @@ def cmdline():
 
     megahal = MegaHAL(brainfile=db_file)
     for filename in args:
-        megahal.train_from_irclog(filename)
+        print "Training from %s" % filename
+        try:
+            megahal.train_from_irclog(filename)
+        except UnicodeDecodeError, e:
+            print str(e)
