@@ -49,6 +49,7 @@ __license__ = 'BSD'
 log = logging.getLogger(__name__)
 
 r_irclog = re.compile(r"^\[[^]]+\]\s+")
+r_ircsubject = re.compile(r"<[^>]+>")
 
 DEFAULT_ORDER = 5
 DEFAULT_BRAINFILE = os.path.join(os.environ.get('HOME', ''), '.pymegahal-brain')
@@ -462,13 +463,13 @@ class MegaHAL(object):
                     self.learn(line)
                     
     def train_from_irclog(self, filename):
-        # [28-Apr-2013 09:09:20]  <nightolo> mancausoft: se vogliono fare la riforma costituzionale possono farla subito
         with codecs.open(filename, "rb", encoding="utf-8") as fd:
             for line in fd:
                 line = line.strip()
-                line = r_irclog.sub(line, "")
+                line = r_irclog.sub("", line)
                 if not line.startswith("<"):
                     continue
+                line = r_ircsubject.sub("", line)
                 self.learn(line)
 
     def learn(self, phrase):
