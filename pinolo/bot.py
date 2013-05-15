@@ -17,6 +17,7 @@ import errno
 import time
 import logging
 import Queue
+import traceback
 import pinolo.plugins
 from pinolo.signals import SignalDispatcher
 from pinolo.irc import IRCConnection, COMMAND_ALIASES
@@ -187,13 +188,13 @@ class Bot(SignalDispatcher):
         if (now - self._last_crontab) >= CRONTAB_INTERVAL:
             self._last_crontab = now
 
-    def quit(self):
+    def quit(self, message="Ctrl-C"):
         """Quit all connected clients"""
-        print "Dicono che devo da quitta"
-        for conn_obj in self.connections.values():
-            conn_obj.quit("Ctrl-C")
+        log.info("Shutting down all connections")
+        for conn_obj in self.connections.itervalues():
+            conn_obj.quit(message)
 
-    def load_plugins(self):
+    def load_plugins(self, exit_on_fail=False):
         """Load all plugins from the plugins module"""
         
         def my_import(name):
@@ -210,28 +211,25 @@ class Bot(SignalDispatcher):
 
         self.signal_emit("pre_load_plugins")
 
-        for filename in os.listdir(plugins_dir):
-            if (not filename.endswith(".py") or
-                filename.startswith("_")):
-                continue
+        disabled_plugins = self.config.get("disabled_plugins", [])
+
+        filtro = re.compile(r"^[^_].+\.py$")
+        for filename in filter(filtro.match, os.listdir(plugins_dir)):
             plugin_name = os.path.splitext(filename)[0]
 
-            if plugin_name in self.config.get("disabled_plugins", []):
+            if plugin_name in disabled_plugins:
                 log.info("Not loading disabled plugin (from config): %s" % plugin_name)
                 continue
             
-            log.debug("Loading plugin %s" % plugin_name)
+            log.info("Loading plugin %s" % plugin_name)
             try:
                 module = my_import("pinolo.plugins." + plugin_name)
-                # module = __import__("pinolo.plugins", plugin_name)
             except Exception, e:
-                print "Failed to load plugin '%s'" % plugin_name
-                print "Exception: %s" % str(e)
-                import traceback
+                print "Failed to load plugin '%s':" % plugin_name
                 for line in traceback.format_exception_only(type(e), e):
-                    print line
-                # continue
-                raise
+                    print "-", line,
+                if exit_on_fail:
+                    raise
 
             self.signal_emit("plugin_loaded", plugin_name=plugin_name,
                              plugin_module=module)
@@ -241,12 +239,11 @@ class Bot(SignalDispatcher):
     def activate_plugins(self):
         """Call the activate method on all loaded plugins"""
         for plugin_name, plugin_class in pinolo.plugins.registry:
-            log.debug("Activating plugin %s" % plugin_name)
+            log.info("Activating plugin %s" % plugin_name)
             p_obj = plugin_class(self)
             p_obj.activate()
             self.plugins.append(p_obj)
-            if hasattr(plugin_class, "COMMAND_ALIASES"):
-                COMMAND_ALIASES.update(plugin_class.COMMAND_ALIASES.items())
+            COMMAND_ALIASES.update(p_obj.COMMAND_ALIASES.items())
             self.signal_emit("plugin_activated", plugin_name=plugin_name,
                              plugin_object=p_obj)
 

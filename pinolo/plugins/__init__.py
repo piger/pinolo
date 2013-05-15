@@ -17,6 +17,8 @@ registry = []
 class Plugin(object):
     """Base class for plugins"""
     
+    COMMAND_ALIASES = {}
+
     class __metaclass__(type):
         def __init__(cls, name, bases, _dict):
             global registry
