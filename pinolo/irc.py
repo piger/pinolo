@@ -82,9 +82,9 @@ def parse_usermask(usermask):
 
 class IRCUser(object):
     def __init__(self, nickname, ident=None, hostname=None):
-        self.nickname = nickname
-        self.ident = ident
-        self.hostname = hostname
+        self.nickname = nickname or ""
+        self.ident = ident or ""
+        self.hostname = hostname or ""
 
     def __repr__(self):
         return u"<IRCUser(%s!%s@%s)>" % (self.nickname, self.ident, self.hostname)
@@ -429,7 +429,7 @@ class IRCConnection(object):
         if event.user.nickname == "NickServ":
             if u"You are now identified" in event.text:
                 self.after_nickserv()
-            elif u"This nick is owned by someone else. Please choose another" in event.text:
+            elif u"This nick is owned by someone else." in event.text:
                 self.nickserv_login()
 
     def on_353(self, event):
@@ -463,13 +463,6 @@ class IRCConnection(object):
             for channel_name in self.channels:
                 self.channels[channel_name].del_user(event.user.nickname)
     
-#    def on_cmd_saluta(self, event):
-#        event.reply(u"ciao")
-
-#    def on_cmd_getta(self, event):
-#        task = TestTask(self.name, self.coda)
-#        task.start()
-
     def on_cmd_quitta(self, event):
         if event.user.nickname == u"sand":
             # self.quit()
@@ -479,14 +472,3 @@ class IRCConnection(object):
 
     def on_cmd_joina(self, event):
         self.join_all()
-
-#    def on_cmd_cowsay(self, event):
-#        log.debug("Launching command cowsay")
-#        righe = cowsay("ciao amico")
-#        for line in righe:
-#            event.reply(line)
-
-    def on_cmd_dimmi(self, event):
-        channel_name = event.args[0].encode('utf-8', 'replace')
-        users = u", ".join(self.channels[channel_name].users.keys())
-        event.reply(u"ci sono questi: %s" % (users,))
