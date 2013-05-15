@@ -198,7 +198,11 @@ class IRCConnection(object):
         """
         buf = u"{0}{1}".format(line, NEWLINE)
         if isinstance(line, unicode):
-            buf = buf.encode('utf-8')
+            try:
+                buf = buf.encode('utf-8', 'ignore')
+            except UnicodeEncodeError, e:
+                log.error("Invalid output line: %r" % buf)
+                return
         log.debug(">>> %r" % buf)
         self.out_buffer += buf
 
@@ -226,11 +230,11 @@ class IRCConnection(object):
             nickname, ident, hostname = (None, None, None)
         else:
             nickname, ident, hostname = parse_usermask(data["source"])
-        command = data["command"].encode("utf-8", "replace")
-        argstr = data["args"] or ""
-        argstr = argstr.strip()
+
+        command = data["command"]
+        argstr = data["args"].strip() if data["args"] else u""
         args = argstr.split()
-        text = data["text"] or ""
+        text = data["text"] or u""
 
         # CTCP
         if (text.startswith(CTCPCHR) and text.endswith(CTCPCHR)):
@@ -241,26 +245,24 @@ class IRCConnection(object):
             ctcp_args = text.split()
             if not ctcp_args:
                 return
-            command = ctcp_args.pop(0).encode("utf-8", "replace")
+            command = ctcp_args.pop(0)
             args = ctcp_args[:]
-            argstr = " ".join(args)
+            argstr = u" ".join(args)
 
-            if old_command == "PRIVMSG":
-                command = "CTCP_" + command
+            if old_command == u"PRIVMSG":
+                command = u"CTCP_" + command
             else:
-                command = "CTCP_REPLY_" + command
+                command = u"CTCP_REPLY_" + command
 
         # E' un "comando" del Bot
-        elif text.startswith(u'!'):
+        elif text.startswith(u"!"):
             try:
-                command, text = text[1:].split(u' ', 1)
+                command, text = text[1:].split(u" ", 1)
             except ValueError:
-                command, text = text[1:], u''
-            finally:
-                command = command.encode('utf-8', 'replace')
+                command, text = text[1:], u""
 
             # Espande il comando con gli alias
-            command = "cmd_" + COMMAND_ALIASES.get(command, command)
+            command = u"cmd_" + COMMAND_ALIASES.get(command, command)
 
         user = IRCUser(nickname, ident, hostname)
         event = IRCEvent(self, user, command, argstr, args, text)
