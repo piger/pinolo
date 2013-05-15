@@ -14,6 +14,7 @@ import re
 import socket
 import errno
 import time
+import traceback
 from pinolo.tasks import TestTask
 from pinolo.cowsay import cowsay
 from pinolo.casuale import get_random_quit, get_random_reply
@@ -260,7 +261,6 @@ class IRCConnection(object):
 
             # Espande il comando con gli alias
             command = "cmd_" + COMMAND_ALIASES.get(command, command)
-            # command = "cmd_{0}".format(command)
 
         user = IRCUser(nickname, ident, hostname)
         event = IRCEvent(self, user, command, argstr, args, text)
@@ -279,9 +279,8 @@ class IRCConnection(object):
             try:
                 fn(event)
             except Exception, e:
-                import traceback
-                print "Exception in IRC callback {0}: {1}".format(
-                    event.name, str(e))
+                log.error("Exception in IRC callback %s: %s" % (
+                    event.name, str(e)))
                 print traceback.format_exc()
 
     def check_in_buffer(self):
@@ -302,7 +301,7 @@ class IRCConnection(object):
             try:
                 line = line.decode('utf-8', 'replace')
             except UnicodeDecodeError, e:
-                print "Invalid encoding for irc line: %s" % (line,)
+                log.error("Invalid encoding for irc line: %r" % line)
             else:
                 self.parse_line(line)
 
@@ -409,13 +408,11 @@ class IRCConnection(object):
         self.ctcp_reply(event.user.nickname, u"%s" % USER_AGENT)
 
     def on_KICK(self, event):
-        channel = event.args[0].encode("utf-8", "replace")
-        target = event.args[1].encode("utf-8", "replace")
+        channel = event.args[0]
+        target = event.args[1].lower()
         
-        if target == self.current_nickname:
+        if target == self.current_nickname.lower():
             self.join(channel)
-        else:
-            self.channels[channel].del_user(target)
 
     def on_NOTICE(self, event):
         """Handle NOTICEs."""
@@ -434,41 +431,26 @@ class IRCConnection(object):
 
     def on_353(self, event):
         """RPL_NAMREPLY - reply to a NAMES command"""
-        nicks = event.text.encode('utf-8', 'replace').split()
-        channel_name = event.args[-1].encode('utf-8', 'replace')
-        
-        for nick in nicks:
-            self.channels[channel_name].add_user(nick)
+        nicks = event.text.split()
+        channel_name = event.args[-1]
 
     def on_JOIN(self, event):
-        name = event.text.encode('utf-8', 'replace')
+        channel_name = event.text
         
         if event.user.nickname == self.current_nickname:
-            channel = Channel(name)
-            self.channels[name] = channel
-            log.info("Joined %s" % name)
-        else:
-            self.channels[name].add_user(event.user.nickname)
+            log.info("Joined %s" % channel_name.encode('utf-8', 'replace'))
 
     def on_PART(self, event):
-        name = event.args[0].encode("utf-8", "replace")
-        if event.user.nickname == self.current_nickname:
-            if name in self.channels:
-                del self.channels[name]
-        else:
-            self.channels[name].del_user(event.user.nickname)
+        channel_name = event.args[0]
 
     def on_QUIT(self, event):
-        if event.user.nickname != self.current_nickname:
-            for channel_name in self.channels:
-                self.channels[channel_name].del_user(event.user.nickname)
-    
+        pass
+
     def on_cmd_quitta(self, event):
         if event.user.nickname == u"sand":
-            # self.quit()
             self.bot.quit()
         else:
-            self.msg(event.user.nickname, u"a pià nder culo!")
+            self.msg(event.user.nickname, u"NO!")
 
     def on_cmd_joina(self, event):
         self.join_all()
