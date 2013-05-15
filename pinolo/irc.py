@@ -17,6 +17,7 @@ import time
 from pinolo.tasks import TestTask
 from pinolo.cowsay import cowsay
 from pinolo.casuale import get_random_quit, get_random_reply
+from pinolo import USER_AGENT
 
 
 log = logging.getLogger(__name__)
@@ -376,8 +377,6 @@ class IRCConnection(object):
 
     def nickserv_login(self):
         self.msg("NickServ", u"IDENTIFY %s" % self.config['nickserv'])
-        # XXX ugly
-        time.sleep(1)
         
     # IRC EVENTS
     def on_001(self, event):
@@ -407,7 +406,7 @@ class IRCConnection(object):
         self.ctcp_ping_reply(event.user.nickname, event.argstr)
 
     def on_CTCP_VERSION(self, event):
-        self.ctcp_reply(event.user.nickname, u"VERSION EY YE")
+        self.ctcp_reply(event.user.nickname, u"%s" % USER_AGENT)
 
     def on_KICK(self, event):
         channel = event.args[0].encode("utf-8", "replace")
@@ -424,9 +423,14 @@ class IRCConnection(object):
         if event.user.nickname == self.current_nickname:
             return
 
+        # React to NickServ messages
+        # - after login to nickserv
+        # - in case of network collision or when the server changes our nickname
         if event.user.nickname == "NickServ":
             if u"You are now identified" in event.text:
                 self.after_nickserv()
+            elif u"This nick is owned by someone else. Please choose another" in event.text:
+                self.nickserv_login()
 
     def on_353(self, event):
         """RPL_NAMREPLY - reply to a NAMES command"""
