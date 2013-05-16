@@ -132,7 +132,12 @@ class QuotesPlugin(Plugin):
             qp = QueryParser("quote", self.ix.schema)
             query = qp.parse(event.text)
             # results = searcher.search(query, limit=limit)
-            results = searcher.search_page(query, page, pagelen=limit)
+            try:
+                results = searcher.search_page(query, page, pagelen=limit)
+            except ValueError:
+                event.reply(u"La tua ricerca mi ha inibito il cervello")
+                return
+
             found = results.scored_length()
             if not found:
                 event.reply(u"Non ho trovato un cazzo!")
