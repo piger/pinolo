@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 import logging
 import unicodedata
 from datetime import datetime
@@ -22,6 +23,9 @@ from whoosh.support.charset import accent_map
 stoplist = []
 stem_lang = "italian"
 my_analyzer = RegexTokenizer() | LowercaseFilter() | StopFilter(stoplist=stoplist) | CharsetFilter(accent_map) | PyStemmerFilter(stem_lang)
+
+
+r_search_page = re.compile(r"--(?P<page>\d+)\s+")
 
 
 class Quote(Base):
@@ -116,27 +120,28 @@ class QuotesPlugin(Plugin):
             event.reply(u"Eh sì, stocazzo")
             return
 
+        match = r_search_page.match(event.text)
+        if match:
+            page = int(match.group(1))
+        else:
+            page = 1
+
         session = Session()
         results_id = []
         with self.ix.searcher() as searcher:
             qp = QueryParser("quote", self.ix.schema)
             query = qp.parse(event.text)
-            results = searcher.search(query, limit=limit)
+            # results = searcher.search(query, limit=limit)
+            results = searcher.search_page(query, page, pagelen=limit)
             found = results.scored_length()
             if not found:
                 event.reply(u"Non ho trovato un cazzo!")
                 return
-                
-            if results.has_exact_length():
-                event.reply(u"Ho trovato %d di %d risultati" % (found, len(results)))
-            else:
-                low = results.estimated_min_length()
-                high = results.estimated_length()
-                if low == high:
-                    event.reply(u"Ho trovato %d tra circa %d risultati" % (found, low))
-                else:
-                    event.reply(u"Ho trovato %d tra circa %d/%d risultati" % (found, low, high))
-         
+            
+            event.reply(u"Risultati pagina %d di %d, risultati %d-%d di %d" % (
+                results.pagenum, results.pagecount, results.offset + 1,
+                results.offset + results.pagelen + 1, len(results)))
+
             for result in results:
                 results_id.append(result['id'])
 
