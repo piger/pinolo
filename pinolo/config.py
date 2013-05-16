@@ -40,6 +40,16 @@ def read_config_file(filename):
 
         for opt in ('channels',):
             server_config[opt] = r_comma.split(server_config[opt])
+
+        for opt in ('ssl', 'ssl_verify'):
+            if not opt in server_config:
+                server_config[opt] = False
+                continue
+
+            if server_config[opt] in ("true", "1", "True"):
+                server_config[opt] = True
+            else:
+                server_config[opt] = False
             
         config['servers'][server_name] = server_config
 
