@@ -6,16 +6,15 @@
 Welcome to pinolo's documentation!
 ==================================
 
+pinolo is an IRC bot written for fun; it has support for multiple
+connections, SSL servers, plugins and some other nice features.
+
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
    plugins
-
-.. .. autoclass:: pinolo.irc2.IRCServer
-
-.. .. autoclass:: pinolo.irc2.Pinolo
 
 Indices and tables
 ==================

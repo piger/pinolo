@@ -67,7 +67,7 @@ class Bot(SignalDispatcher):
         self.signal_emit("pre_connect")
         
         for conn_name, conn_obj in self.connections.iteritems():
-            print "Connecting to server: {0}".format(conn_name)
+            log.info("Connecting to server: %s" % conn_name)
             conn_obj.connect()
 
         for conn_obj in self.connections.values():
@@ -118,7 +118,7 @@ class Bot(SignalDispatcher):
 
         # This is ugly. XXX
         if not in_sockets:
-            log.error("No more active connections. exiting...")
+            log.warning("No more active connections. exiting...")
             self.running = False
             return
 
@@ -151,7 +151,7 @@ class Bot(SignalDispatcher):
                 if chunk == '':
                     conn_obj.connected = False
                     conn_obj.active = False
-                    print "{0} disconnected (EOF from server)".format(conn_obj.name)
+                    log.error("{0} disconnected (EOF from server)".format(conn_obj.name))
                     break
                 else:
                     conn_obj.in_buffer += chunk
@@ -165,6 +165,7 @@ class Bot(SignalDispatcher):
             # If this is the first time we get a "writable" status then
             # we are actually connected to the remote server.
             if conn_obj.connected == False:
+                log.info("Connected to %s" % conn_obj.name)
                 conn_obj.connected = True
 
                 # SSL socket setup
@@ -227,6 +228,7 @@ class Bot(SignalDispatcher):
 
     def quit(self, message="Ctrl-C"):
         """Quit all connected clients"""
+
         log.info("Shutting down all connections")
         for conn_obj in self.connections.itervalues():
             conn_obj.quit(message)
@@ -275,6 +277,7 @@ class Bot(SignalDispatcher):
 
     def activate_plugins(self):
         """Call the activate method on all loaded plugins"""
+
         for plugin_name, plugin_class in pinolo.plugins.registry:
             log.info("Activating plugin %s" % plugin_name)
             p_obj = plugin_class(self)
