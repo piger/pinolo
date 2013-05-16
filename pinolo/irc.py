@@ -129,23 +129,6 @@ class IRCEvent(object):
             self.args, self.text)
 
 
-class Channel(object):
-    def __init__(self, name):
-        self.name = name
-        self.users = {}
-
-    def add_user(self, nickname, ident=None, address=None):
-        user = IRCUser(nickname, ident, address)
-        self.users[nickname] = user
-
-    def del_user(self, nickname):
-        if nickname in self.users:
-            del self.users[nickname]
-
-    def __repr__(self):
-        return "<Channel(%s)>" % self.name
-
-
 class IRCConnection(object):
     def __init__(self, name, config, bot):
         # the connection name
