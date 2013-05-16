@@ -114,12 +114,27 @@ class MarkovBrain(object):
             weight = self.tokens[context].get(next_word, 0)
             self.tokens[context][next_word] = (weight + 1)
 
+    def start_from_seed(self, seed):
+        tokens = self.lex(seed)
+        if len(tokens) < (self.context + 1):
+            return None
+
+        for context, next_word in self._sequence(tokens, self.context):
+            if context in self.tokens:
+                return context
+
+        return None
+
     def say(self, seed=None, max_words=50):
         # Empty database, we can't talk.
         if not self.tokens:
             return
-            
-        starter = random.choice(self.tokens.keys())
+
+        if seed:
+            starter = self.start_from_seed(seed)
+
+        if starter is None:
+            starter = random.choice(self.tokens.keys())
         sequence = deque(tuple(starter))
         sentence = list(starter)
 
@@ -181,3 +196,8 @@ class MarkovPlugin(Plugin):
             if self._counter >= self.SAVE_EVERY:
                 self._counter = 0
                 self.markov.save()
+
+            if random.randint(0, 100) >= 92:
+                reply = self.markov.say(event.text)
+                if reply:
+                    event.reply(reply, prefix=False)
