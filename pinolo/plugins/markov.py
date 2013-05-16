@@ -163,13 +163,13 @@ class MarkovBrain(object):
 
 class MarkovPlugin(Plugin):
 
-    SAVE_EVERY = 50
-
     def __init__(self, bot):
         super(MarkovPlugin, self).__init__(bot)
         self.db_file = os.path.join(self.bot.config['datadir'], "markov.pickle")
         self.markov = MarkovBrain(self.db_file)
         self._counter = 0
+        self.verbosity = self.bot.config.get("markov_verbosity", 97)
+        self.save_every = self.bot.config.get("markov_save_every", 50)
 
     def activate(self):
         self.markov.load()
@@ -193,11 +193,11 @@ class MarkovPlugin(Plugin):
         else:
             self.markov.learn(event.text)
             self._counter += 1
-            if self._counter >= self.SAVE_EVERY:
+            if self._counter >= self.save_every:
                 self._counter = 0
                 self.markov.save()
 
-            if random.randint(0, 100) >= 92:
+            if random.randint(0, 100) >= self.verbosity:
                 reply = self.markov.say(event.text)
                 if reply:
                     event.reply(reply, prefix=False)
