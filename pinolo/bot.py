@@ -11,6 +11,7 @@
 """
 import os
 import re
+import ssl
 import socket
 import select
 import errno
@@ -18,6 +19,7 @@ import time
 import logging
 import Queue
 import traceback
+from pprint import pprint
 import pinolo.plugins
 from pinolo.signals import SignalDispatcher
 from pinolo.irc import IRCConnection, COMMAND_ALIASES
@@ -90,6 +92,16 @@ class Bot(SignalDispatcher):
             self.check_queue()
             self.handle_cron()
 
+    def do_handshake(self, s):
+        try:
+            s.do_handshake()
+        except ssl.SSLError as err:
+            if err.args[0] in (ssl.SSL_ERROR_WANT_READ, ssl.SSL_ERROR_WANT_WRITE):
+                return False
+            else:
+                raise
+        return True
+
     def handle_network(self):
         # For the select() call we must create two distinct groups of sockets
         # to watch for: all the active sockets must be checked for reading, but
@@ -119,13 +131,19 @@ class Bot(SignalDispatcher):
         for s in readable:
             conn_obj = self.connection_map[s]
 
+            # Do SSL handshake if needed
+            if conn_obj.ssl_must_handshake and conn_obj.connected:
+                result = self.do_handshake(conn_obj.socket)
+                if not result:
+                    continue
+
             # We must read data from socket until the syscall returns EAGAIN;
             # when the OS signals EAGAIN the socket would block reading.
             while True:
                 try:
                     chunk = s.recv(512)
-                except socket.error, e:
-                    if e[0] == errno.EAGAIN:
+                except (socket.error, ssl.SSLError) as err:
+                    if err.args[0] in (errno.EAGAIN, ssl.SSL_ERROR_WANT_READ):
                         break
                     else:
                         raise
@@ -144,6 +162,25 @@ class Bot(SignalDispatcher):
         for s in writable:
             conn_obj = self.connection_map[s]
 
+            # If this is the first time we get a "writable" status then
+            # we are actually connected to the remote server.
+            if conn_obj.connected == False:
+                conn_obj.connected = True
+
+                # SSL socket setup
+                if conn_obj.config["ssl"]:
+                    conn_obj.wrap_ssl()
+                    # swap the socket in the connection map with the ssl one
+                    self.connection_map[conn_obj.socket] = conn_obj
+                    del self.connection_map[s]
+                    s = conn_obj.socket
+
+            # SSL handshake
+            if conn_obj.ssl_must_handshake and conn_obj.connected:
+                result = self.do_handshake(s)
+                if not result:
+                    continue
+                
             # check if we got disconnected while reading from socket
             # XXX should be empty the out buffer?
             if not conn_obj.connected:
@@ -158,8 +195,8 @@ class Bot(SignalDispatcher):
                     # per evitare i flood? ma il flood anche sticazzi,
                     # server *decenti* tipo inspircd non hanno più quel
                     # problema.
-                except socket.error, e:
-                    if e[0] == errno.EAGAIN:
+                except (socket.error, ssl.SSLError) as err:
+                    if err.args[0] in (errno.EAGAIN, ssl.SSL_ERROR_WANT_WRITE):
                         break
                     else:
                         raise

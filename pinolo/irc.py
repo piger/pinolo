@@ -15,6 +15,7 @@ import socket
 import errno
 import time
 import traceback
+import ssl
 from pinolo.tasks import TestTask
 from pinolo.cowsay import cowsay
 from pinolo.casuale import get_random_quit, get_random_reply
@@ -150,16 +151,34 @@ class IRCConnection(object):
         self.current_nickname = None
         # la queue per i thread
         self.coda = self.bot.coda
-
+        # SSL status
+        self.ssl_must_handshake = False
+        self.ssl_ca_path = self.config.get("ssl_ca_path")
         # state
         self.channels = {}
 
     def __repr__(self):
         return "<IRCConnection(%s)>" % self.name
 
+    def wrap_ssl(self):
+        if not self.config["ssl"]:
+            return
+
+        try:
+            self.socket = ssl.wrap_socket(self.socket,
+                                          cert_reqs=ssl.CERT_NONE,
+                                          do_handshake_on_connect=False)
+            self.ssl_must_handshake = True
+        except ssl.SSLError:
+            raise            
+
     def connect(self):
+        """Create a socket and connect to the remote server; at the moment
+        we have to do a blocking connect() to support SSL sockets.
+        """
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setblocking(0)
+        self.socket.setblocking(False)
+
         try:
             self.socket.connect((self.config['hostname'], self.config['port']))
         except socket.error, e:
@@ -169,7 +188,9 @@ class IRCConnection(object):
                 pass
             else:
                 raise
-        self.connected = True
+        except socket.gaierror as err:
+            print "Unknown host: %s (%s)" % (self.config['hostname'], str(err))
+            raise
 
         self.nick()
         self.ident()
