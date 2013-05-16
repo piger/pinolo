@@ -161,16 +161,23 @@ class IRCConnection(object):
         return "<IRCConnection(%s)>" % self.name
 
     def wrap_ssl(self):
-        if not self.config["ssl"]:
-            return
+        old_socket = self.socket
 
         try:
-            self.socket = ssl.wrap_socket(self.socket,
-                                          cert_reqs=ssl.CERT_NONE,
-                                          do_handshake_on_connect=False)
+            if self.config["ssl_verify"]:
+                self.socket = ssl.wrap_socket(self.socket,
+                                              cert_reqs=ssl.CERT_REQUIRED,
+                                              ca_certs=self.ssl_ca_path,
+                                              do_handshake_on_connect=False)
+            else:
+                self.socket = ssl.wrap_socket(self.socket,
+                                              cert_reqs=ssl.CERT_NONE,
+                                              do_handshake_on_connect=False)
             self.ssl_must_handshake = True
         except ssl.SSLError:
-            raise            
+            raise
+        
+        return (old_socket, self.socket)
 
     def connect(self):
         """Create a socket and connect to the remote server; at the moment
