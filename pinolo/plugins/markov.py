@@ -132,6 +132,8 @@ class MarkovBrain(object):
 
         if seed:
             starter = self.start_from_seed(seed)
+        else:
+            starter = None
 
         if starter is None:
             starter = random.choice(self.tokens.keys())
