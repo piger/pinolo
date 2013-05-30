@@ -162,17 +162,15 @@ class IRCConnection(object):
 
     def wrap_ssl(self):
         old_socket = self.socket
+        sockopts = dict(do_handshake_on_connect=False)
+        if self.config["ssl_verify"]:
+            sockopts['cert_reqs'] = ssl.CERT_REQUIRED
+            sockopts['ca_certs'] = self.ssl_ca_path
+        else:
+            sockopts['cert_reqs'] = ssl.CERT_NONE
 
         try:
-            if self.config["ssl_verify"]:
-                self.socket = ssl.wrap_socket(self.socket,
-                                              cert_reqs=ssl.CERT_REQUIRED,
-                                              ca_certs=self.ssl_ca_path,
-                                              do_handshake_on_connect=False)
-            else:
-                self.socket = ssl.wrap_socket(self.socket,
-                                              cert_reqs=ssl.CERT_NONE,
-                                              do_handshake_on_connect=False)
+            self.socket = ssl.wrap_socket(self.socket, **sockopts)
             self.ssl_must_handshake = True
         except ssl.SSLError:
             raise
