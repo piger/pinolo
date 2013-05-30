@@ -8,49 +8,25 @@
     :copyright: (c) 2013 Daniel Kertesz
     :license: BSD, see LICENSE for more details.
 """
-import re
-import codecs
-from ConfigParser import SafeConfigParser
-
-
-r_comma = re.compile(r'\s*,\s+')
+import sys
+import os
+import coil
 
 
 def read_config_file(filename):
-    cfp = SafeConfigParser()
-    with codecs.open(filename, 'r', 'utf-8') as fd:
-        cfp.readfp(fd, filename)
+    """Read a configuration file in coil format and returns a Struct
+    object (dict-like)"""
 
-    config = dict(cfp.items("general"))
-    config['servers'] = {}
+    def fatal(msg):
+        sys.stderr.write("%s\n" % msg)
+        sys.exit(1)
+    
+    config = coil.parse_file(filename, encoding="utf-8")
 
-    for opt in ('nicknames', 'disabled_plugins'):
-        if opt in config:
-            config[opt] = r_comma.split(config[opt])
-
-    for section in cfp.sections():
-        if not section.startswith("server:"):
-            continue
-
-        server_name = section.split(':')[1]
-        server_config = dict(cfp.items(section))
-
-        for opt in ('port',):
-            server_config[opt] = int(server_config[opt])
-
-        for opt in ('channels',):
-            server_config[opt] = r_comma.split(server_config[opt])
-
-        for opt in ('ssl', 'ssl_verify'):
-            if not opt in server_config:
-                server_config[opt] = False
-                continue
-
-            if server_config[opt] in ("true", "1", "True"):
-                server_config[opt] = True
-            else:
-                server_config[opt] = False
-            
-        config['servers'][server_name] = server_config
-
+    if config.get("@root.datadir") is None:
+        fatal("Config error: empty 'datadir' parameter")
+    else:
+        if config["datadir"].startswith("~"):
+            config.set("datadir", os.path.expanduser(config["datadir"]))
+        
     return config

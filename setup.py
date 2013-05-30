@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pinolo",
-    version="0.10.1",
+    version="0.10.2",
     description="Pinolo, the naughty chat bot",
     author="sand",
     author_email="daniel@spatof.org",

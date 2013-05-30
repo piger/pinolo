@@ -146,7 +146,7 @@ class IRCConnection(object):
         self.connected = False
         self.active = True
         # nickname handling
-        self.nicknames = self.bot.config['nicknames']
+        self.nicknames = self.config['nicknames']
         self.nicknames_id = 0
         self.current_nickname = None
         # la queue per i thread
@@ -185,7 +185,7 @@ class IRCConnection(object):
         self.socket.setblocking(False)
 
         try:
-            self.socket.connect((self.config['hostname'], self.config['port']))
+            self.socket.connect((self.config['host'], self.config['port']))
         except socket.error, e:
             if isinstance(e, str):
                 raise
@@ -194,7 +194,7 @@ class IRCConnection(object):
             else:
                 raise
         except socket.gaierror as err:
-            print "Unknown host: %s (%s)" % (self.config['hostname'], str(err))
+            print "Unknown host: %s (%s)" % (self.config['host'], str(err))
             raise
 
         self.nick()
@@ -339,8 +339,7 @@ class IRCConnection(object):
         Note: user mode '8' means "invisible"
         """
         self.send(u"USER {0} 8 * :{1}".format(
-            self.bot.config['ident'],
-            self.bot.config['realname']))
+            self.config["ident"], self.config["realname"]))
 
     def join(self, channel, key=None):
         """Join a single channel"""
