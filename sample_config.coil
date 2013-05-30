@@ -1,0 +1,24 @@
+# sample pinolo configuration file
+# the "coil" format used for this file is like JSON
+
+datadir: "~/pinolo/data"
+disabled_plugins: []
+googleapi: None
+
+defaults: {
+	ident: "pinolo"
+	realname: "Pinot di pinolo"
+	nicknames: ["pinolo" "pinolo_" "pinolo__"]
+	port: 6667
+	ssl: False
+	ssl_verify: False
+	ssl_ca_path: None
+}
+
+servers: {
+	ircnet: {
+		@extends: @root.defaults
+		host: "irc.example.com"
+		channels: ["#pinolandia"]
+	}
+}
