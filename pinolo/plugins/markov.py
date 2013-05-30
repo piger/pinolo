@@ -165,9 +165,7 @@ class MarkovBrain(object):
 
 class MarkovPlugin(Plugin):
     def activate(self):
-        self.db_file = os.path.join(self.config.get("@root.datadir"),
-                                    "markov.pickle")
-        self.markov = MarkovBrain(self.db_file)
+        self.markov = MarkovBrain(self.config["db_file"])
         self._counter = 0
         self.markov.load()
 

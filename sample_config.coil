@@ -27,5 +27,10 @@ plugins: {
 	markov: {
 		verbosity: 95
 		save_every: 50
+		db_file: "${@root.datadir}/markov.pickle"
+	}
+
+	quotes2: {
+		db_path: "${@root.datadir}/whoosh"
 	}
 }

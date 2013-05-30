@@ -24,6 +24,7 @@ import pinolo.plugins
 from pinolo.signals import SignalDispatcher
 from pinolo.irc import IRCConnection, COMMAND_ALIASES
 from pinolo.database import init_db
+from pinolo.config import empty_config
 
 
 log = logging.getLogger()
@@ -278,12 +279,17 @@ class Bot(SignalDispatcher):
     def activate_plugins(self):
         """Call the activate method on all loaded plugins"""
 
-        for plugin_name, plugin_class in pinolo.plugins.registry:
+        def basename(s):
+            return s.split(".")[-1]
+
+        for _, plugin_class in pinolo.plugins.registry:
+            plugin_name = basename(plugin_class.__module__)
             log.info("Activating plugin %s" % plugin_name)
             if plugin_name in self.config["plugins"]:
                 plugin_config = self.config["plugins"][plugin_name]
             else:
-                plugin_config = {}
+                plugin_config = empty_config(self.config, plugin_name)
+
             p_obj = plugin_class(self, plugin_config)
             p_obj.activate()
             self.plugins.append(p_obj)

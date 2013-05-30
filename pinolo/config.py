@@ -25,8 +25,15 @@ def read_config_file(filename):
 
     if config.get("@root.datadir") is None:
         fatal("Config error: empty 'datadir' parameter")
-    else:
-        if config["datadir"].startswith("~"):
-            config.set("datadir", os.path.expanduser(config["datadir"]))
+
+    to_expand = ("@root.datadir", "@root.plugins.quotes2.db_path",
+                 "@root.plugins.markov.db_file")
+    for name in to_expand:
+        path = config.get(name)
+        if path is not None and path.startswith("~"):
+            config.set(name, os.path.expanduser(path))
         
     return config
+
+def empty_config(root, name):
+    return coil.struct.Struct(container=root["plugins"], name=name)

@@ -62,27 +62,27 @@ class QuotesPlugin(Plugin):
     
     def __init__(self, bot, config, enabled=True):
         super(QuotesPlugin, self).__init__(bot, config, enabled)
-        self.db_path = os.path.join(self.config.get("@root.datadir"),
-                                    "whoosh")
         self.to_be_indexed = False
         self.init_whoosh()
 
     def init_whoosh(self):
-        if os.path.exists(self.db_path):
-            self.ix = index.open_dir(self.db_path)
+        log.info("Opening Whoosh database %s" % self.config["db_path"])
+        if os.path.exists(self.config["db_path"]):
+            self.ix = index.open_dir(self.config["db_path"])
         else:
             schema = Schema(author=TEXT(), 
                             quote=TEXT(analyzer=my_analyzer),
                             creation_date=DATETIME(),
                             id=NUMERIC(stored=True))
-            os.mkdir(self.db_path)
-            self.ix = index.create_in(self.db_path, schema)
+            os.mkdir(self.config["db_path"])
+            self.ix = index.create_in(self.config["db_path"], schema)
             self.to_be_indexed = True
 
     def activate(self):
         if not self.to_be_indexed:
             return
 
+        log.info("Indexing the quotes database for the first time")
         session = Session()
         writer = self.ix.writer()
         for quote in Session.query(Quote).all():
