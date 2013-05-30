@@ -280,7 +280,11 @@ class Bot(SignalDispatcher):
 
         for plugin_name, plugin_class in pinolo.plugins.registry:
             log.info("Activating plugin %s" % plugin_name)
-            p_obj = plugin_class(self)
+            if plugin_name in self.config["plugins"]:
+                plugin_config = self.config["plugins"][plugin_name]
+            else:
+                plugin_config = {}
+            p_obj = plugin_class(self, plugin_config)
             p_obj.activate()
             self.plugins.append(p_obj)
             COMMAND_ALIASES.update(p_obj.COMMAND_ALIASES.items())

@@ -22,3 +22,10 @@ servers: {
 		channels: ["#pinolandia"]
 	}
 }
+
+plugins: {
+	markov: {
+		verbosity: 95
+		save_every: 50
+	}
+}

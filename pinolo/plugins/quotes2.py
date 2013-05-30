@@ -60,9 +60,10 @@ class QuotesPlugin(Plugin):
         's': 'search',
     }
     
-    def __init__(self, bot):
-        super(QuotesPlugin, self).__init__(bot)
-        self.db_path = os.path.join(self.bot.config['datadir'], "whoosh")
+    def __init__(self, bot, config, enabled=True):
+        super(QuotesPlugin, self).__init__(bot, config, enabled)
+        self.db_path = os.path.join(self.config.get("@root.datadir"),
+                                    "whoosh")
         self.to_be_indexed = False
         self.init_whoosh()
 
