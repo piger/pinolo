@@ -8,7 +8,7 @@
     :copyright: (c) 2013 Daniel Kertesz
     :license: BSD, see LICENSE for more details.
 """
-VERSION = (0, 10, 1)
+VERSION = (0, 10, 3)
 STR_VERSION = '.'.join([str(x) for x in VERSION])
-SOURCE_URL = "http://git.spatof.org/pinolo.git"
+SOURCE_URL = "https://github.com/piger/pinolo"
 USER_AGENT = "Pinolo/%s +%s" % (STR_VERSION, SOURCE_URL)

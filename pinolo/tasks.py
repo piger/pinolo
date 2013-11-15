@@ -12,7 +12,6 @@
     :license: BSD, see LICENSE for more details.
 """
 import threading
-import urllib2
 
 
 class Task(threading.Thread):
@@ -39,15 +38,3 @@ class Task(threading.Thread):
         queue; data should be a string containing the full output, that will
         later be splitted on newlines."""
         self.queue.put(tuple(data))
-
-
-class TestTask(Task):
-    def run(self):
-        """Main execution function. This must not be called directly! You
-        must call threading.Thread.start() method."""
-
-        url = "http://www.spatof.org/blog/robots.txt"
-        resp = urllib2.urlopen(url)
-        data = resp.read()
-
-        self.put_results(data)

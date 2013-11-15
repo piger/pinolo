@@ -1,0 +1,3 @@
+recursive-include pinolo/data *.txt
+recursive-include pinolo/data/prcd *
+recursive-include pinolo/plugins *.txt

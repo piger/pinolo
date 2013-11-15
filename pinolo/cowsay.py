@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
+"""
+    pinolo.cowsay
+    ~~~~~~~~~~~~~
+
+    Cowsay wrapper.
+
+    :copyright: (c) 2013 Daniel Kertesz
+    :license: BSD, see LICENSE for more details.
+"""
 import logging
 import subprocess
 import random
@@ -14,21 +23,19 @@ eyes_flags = ('b', 'd', 'g', 'p', 's', 't', 'w', 'y', '')
 exclude = ('unipony', 'cheese', 'pony', 'beavis.zen', 'calvin',
            'daemon', 'dragon', 'dragon-and-cow', 'eyes', 'ghostbusters',
            'gnu', 'kosh', 'mech-and-cow', 'milk', 'ren', 'stegosaurus',
-           'turkey', 'turtle', 'meow', 'snowman', 'stimpy')
+           'turkey', 'turtle', 'meow', 'snowman', 'stimpy', 'surgery')
 
 
 def get_shapes():
     try:
-        # nota: subprocess.check_output e' python 2.7!
-        # output = subprocess.check_output(['cowsay', '-l'])
         p = subprocess.Popen(shlex.split("cowsay -l"), stdout=subprocess.PIPE)
         output = p.communicate()[0]
     except OSError, e:
-        logger.error("ERROR: Disabling cowsay (%s)" % e)
+        logger.error("ERROR: Disabling cowsay (%s)", e)
         return []
     output = ' '.join(output.split("\n")[1:-1])
-    shapes = [x for x in output.split() if x not in exclude]
-    return shapes
+    _shapes = [x for x in output.split() if x not in exclude]
+    return _shapes
 shapes = get_shapes()
 
 

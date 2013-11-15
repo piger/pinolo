@@ -16,9 +16,7 @@ import errno
 import time
 import traceback
 import ssl
-from pinolo.tasks import TestTask
-from pinolo.cowsay import cowsay
-from pinolo.casuale import get_random_quit, get_random_reply
+from pinolo.casuale import get_random_quit
 from pinolo import USER_AGENT
 
 
@@ -161,21 +159,21 @@ class IRCConnection(object):
         return "<IRCConnection(%s)>" % self.name
 
     def wrap_ssl(self):
-        old_socket = self.socket
-        sockopts = dict(do_handshake_on_connect=False)
-        if self.config["ssl_verify"]:
-            sockopts['cert_reqs'] = ssl.CERT_REQUIRED
-            sockopts['ca_certs'] = self.ssl_ca_path
-        else:
-            sockopts['cert_reqs'] = ssl.CERT_NONE
-
         try:
-            self.socket = ssl.wrap_socket(self.socket, **sockopts)
-            self.ssl_must_handshake = True
+            if self.config['ssl_verify']:
+                ssl_socket = ssl.wrap_socket(self.socket,
+                                             do_handshake_on_connect=False,
+                                             cert_reqs=ssl.CERT_REQUIRED,
+                                             ca_certs=self.ssl_ca_path)
+            else:
+                ssl_socket = ssl.wrap_socket(self.socket,
+                                             do_handshake_on_connect=False,
+                                             cert_reqs=ssl.CERT_NONE)
         except ssl.SSLError:
             raise
-        
-        return (old_socket, self.socket)
+
+        self.socket = ssl_socket
+        self.ssl_must_handshake = True
 
     def connect(self):
         """Create a socket and connect to the remote server; at the moment
@@ -209,10 +207,11 @@ class IRCConnection(object):
         if isinstance(line, unicode):
             try:
                 buf = buf.encode('utf-8', 'ignore')
-            except UnicodeEncodeError, e:
-                log.error("Invalid output line: %r" % buf)
+            except UnicodeEncodeError:
+                log.error("Invalid output line: %r", buf)
                 return
-        log.debug(">>> %r" % buf)
+
+        log.debug(">>> %r", buf)
         self.out_buffer += buf
 
     def parse_line(self, line):
@@ -225,15 +224,15 @@ class IRCConnection(object):
         If the prefix is missing from the message, it is assumed to
         have originated from the connection from which it was received.
         """
-        log.debug("<<< %r" % line)
+        log.debug("<<< %r", line)
 
         match = r_ircline.match(line)
         if match is None:
-            log.error("Invalid IRC line: %r" % line)
+            log.error("Invalid IRC line: %r", line)
             return
 
         data = match.groupdict()
-        log.debug("IRC msg parsing: %r" % (data,))
+        log.debug("IRC msg parsing: %r", data)
         
         if data["source"] is None:
             nickname, ident, hostname = (None, None, None)
@@ -278,7 +277,7 @@ class IRCConnection(object):
         self.dispatch_event(event)
 
     def dispatch_event(self, event):
-        log.debug("Dispatching %r" % event)
+        log.debug("Dispatching %r", event)
 
         # Check only enabled plugins
         plugins = [plugin for plugin in self.bot.plugins if plugin.enabled]
@@ -290,8 +289,8 @@ class IRCConnection(object):
             try:
                 fn(event)
             except Exception, e:
-                log.error("Exception in IRC callback %s: %s" % (
-                    event.name, str(e)))
+                log.error("Exception in IRC callback %s: %s",
+                          event.name, str(e))
                 print traceback.format_exc()
 
     def check_in_buffer(self):
@@ -311,8 +310,8 @@ class IRCConnection(object):
             
             try:
                 line = line.decode('utf-8', 'replace')
-            except UnicodeDecodeError, e:
-                log.error("Invalid encoding for irc line: %r" % line)
+            except UnicodeDecodeError:
+                log.error("Invalid encoding for irc line: %r", line)
             else:
                 self.parse_line(line)
 
@@ -409,7 +408,7 @@ class IRCConnection(object):
         if event.text:
             self.send(u"PONG %s" % event.text)
         else:
-            seld.send(u"PONG foobar")
+            self.send(u"PONG foobar")
 
     def on_CTCP_PING(self, event):
         self.ctcp_ping_reply(event.user.nickname, event.argstr)
@@ -441,17 +440,19 @@ class IRCConnection(object):
 
     def on_353(self, event):
         """RPL_NAMREPLY - reply to a NAMES command"""
-        nicks = event.text.split()
-        channel_name = event.args[-1]
+        # nicks = event.text.split()
+        # channel_name = event.args[-1]
+        pass
 
     def on_JOIN(self, event):
         channel_name = event.text
         
         if event.user.nickname == self.current_nickname:
-            log.info("Joined %s" % channel_name.encode('utf-8', 'replace'))
+            log.info("Joined %s", channel_name.encode('utf-8', 'replace'))
 
     def on_PART(self, event):
-        channel_name = event.args[0]
+        # channel_name = event.args[0]
+        pass
 
     def on_QUIT(self, event):
         pass

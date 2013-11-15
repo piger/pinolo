@@ -2,28 +2,29 @@
 import os
 import re
 import logging
-import unicodedata
 from datetime import datetime
 from sqlalchemy import (Column, Integer, Unicode, DateTime, func)
 from sqlalchemy.orm.exc import NoResultFound
 from whoosh import index
-from whoosh.fields import (Schema, TEXT, KEYWORD, NUMERIC, DATETIME)
-from whoosh.analysis import PyStemmerFilter, StemmingAnalyzer
+from whoosh.fields import (Schema, TEXT, NUMERIC, DATETIME)
+from whoosh.analysis import (PyStemmerFilter, RegexTokenizer, LowercaseFilter,
+                             StopFilter, CharsetFilter)
 from whoosh.qparser import QueryParser
+from whoosh.index import EmptyIndexError
+from whoosh.support.charset import accent_map
 from pinolo.plugins import Plugin
 from pinolo.database import Base, Session
 
 
 log = logging.getLogger(__name__)
 
-# RegexTokenizer LowercaseFilter StopFilter StemmingFilter
-from whoosh.analysis import (RegexTokenizer, LowercaseFilter, StopFilter, PyStemmerFilter, CharsetFilter)
-from whoosh.support.charset import accent_map
-
 stoplist = []
 stem_lang = "italian"
-my_analyzer = RegexTokenizer() | LowercaseFilter() | StopFilter(stoplist=stoplist) | CharsetFilter(accent_map) | PyStemmerFilter(stem_lang)
-
+my_analyzer = RegexTokenizer() \
+              | LowercaseFilter() \
+              | StopFilter(stoplist=stoplist) \
+              | CharsetFilter(accent_map) \
+              | PyStemmerFilter(stem_lang)
 
 r_search_page = re.compile(r"--(?P<page>\d+)\s+")
 
@@ -63,20 +64,31 @@ class QuotesPlugin(Plugin):
     def __init__(self, bot, config, enabled=True):
         super(QuotesPlugin, self).__init__(bot, config, enabled)
         self.to_be_indexed = False
+        self.ix = None
         self.init_whoosh()
 
     def init_whoosh(self):
-        log.info("Opening Whoosh database %s" % self.config["db_path"])
-        if os.path.exists(self.config["db_path"]):
-            self.ix = index.open_dir(self.config["db_path"])
+        idx_dir = self.config['db_path']
+        log.info("Opening Whoosh database %s", idx_dir)
+
+        if os.path.exists(idx_dir):
+            try:
+                self.ix = index.open_dir(idx_dir)
+            except EmptyIndexError:
+                self.create_index()
         else:
-            schema = Schema(author=TEXT(), 
-                            quote=TEXT(analyzer=my_analyzer),
-                            creation_date=DATETIME(),
-                            id=NUMERIC(stored=True))
-            os.mkdir(self.config["db_path"])
-            self.ix = index.create_in(self.config["db_path"], schema)
-            self.to_be_indexed = True
+            self.create_index()
+
+    def create_index(self):
+        idx_dir = self.config['db_path']
+        schema = Schema(author=TEXT(), 
+                        quote=TEXT(analyzer=my_analyzer),
+                        creation_date=DATETIME(),
+                        id=NUMERIC(stored=True))
+        if not os.path.exists(idx_dir):
+            os.mkdir(idx_dir)
+        self.ix = index.create_in(idx_dir, schema)
+        self.to_be_indexed = True
 
     def activate(self):
         if not self.to_be_indexed:
@@ -85,7 +97,7 @@ class QuotesPlugin(Plugin):
         log.info("Indexing the quotes database for the first time")
         session = Session()
         writer = self.ix.writer()
-        for quote in Session.query(Quote).all():
+        for quote in session.query(Quote).all():
             self.index_quote(quote, writer, commit=False)
         writer.commit()
 
@@ -143,7 +155,7 @@ class QuotesPlugin(Plugin):
             if not found:
                 event.reply(u"Non ho trovato un cazzo!")
                 return
-            
+
             event.reply(u"Risultati pagina %d di %d, risultati %d-%d di %d" % (
                 results.pagenum, results.pagecount, results.offset + 1,
                 results.offset + results.pagelen + 1, len(results)))
@@ -151,7 +163,7 @@ class QuotesPlugin(Plugin):
             for result in results:
                 results_id.append(result['id'])
 
-        for quote in Session.query(Quote).filter(Quote.id.in_(results_id)).all():
+        for quote in session.query(Quote).filter(Quote.id.in_(results_id)).all():
             event.reply(u"(%i) %s" % (quote.id, quote.quote))
             
 
@@ -160,7 +172,7 @@ class QuotesPlugin(Plugin):
             try:
                 req = int(event.text)
                 quote = self.quote_by_id(req)
-            except (NoResultFound, ValueError), e:
+            except (NoResultFound, ValueError):
                 event.reply(u"Te stai a sbajà")
                 return
         else:
@@ -169,8 +181,8 @@ class QuotesPlugin(Plugin):
         if quote is not None:
             event.reply(u"(%i) %s" % (quote.id, quote.quote))
 
-    def quote_by_id(self, id):
-        return Quote.query.filter_by(id=id).one()
+    def quote_by_id(self, _id):
+        return Quote.query.filter_by(id=_id).one()
 
     def random_quote(self):
         return Quote.query.order_by(func.random()).first()

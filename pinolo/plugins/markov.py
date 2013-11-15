@@ -14,7 +14,7 @@ import random
 import logging
 import shutil
 import cPickle as pickle
-from collections import defaultdict, deque
+from collections import deque
 from pinolo.plugins import Plugin
 
 
@@ -55,8 +55,8 @@ class PersistentDict(dict):
 
         try:
             with open(tmpfile, "wb") as fd:
-                data = pickle.dump(dict(self), fd, 2)
-        except Exception, e:
+                pickle.dump(dict(self), fd, 2)
+        except (OSError, pickle.PickleError):
             os.remove(tmpfile)
             raise
             
@@ -119,7 +119,7 @@ class MarkovBrain(object):
         if len(tokens) < (self.context + 1):
             return None
 
-        for context, next_word in self._sequence(tokens, self.context):
+        for context, _ in self._sequence(tokens, self.context):
             if context in self.tokens:
                 return context
 
@@ -140,7 +140,7 @@ class MarkovBrain(object):
         sequence = deque(tuple(starter))
         sentence = list(starter)
 
-        for i in xrange(max_words):
+        for _ in xrange(max_words):
             context = tuple(sequence)
             try:
                 next_dict = self.tokens[context]
@@ -164,9 +164,13 @@ class MarkovBrain(object):
 
 
 class MarkovPlugin(Plugin):
+    def __init__(self, *args, **kwargs):
+        super(MarkovPlugin, self).__init__(*args, **kwargs)
+        self.markov = None
+        self._counter = 0
+
     def activate(self):
         self.markov = MarkovBrain(self.config["db_file"])
-        self._counter = 0
         self.markov.load()
 
     def deactivate(self):

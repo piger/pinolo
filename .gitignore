@@ -7,3 +7,4 @@ pinolo.egg-info
 pinolo/data/prcd/prcd_*
 *~
 datadir/
+doc/_build/

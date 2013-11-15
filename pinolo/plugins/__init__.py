@@ -33,8 +33,6 @@ class Plugin(object):
 
     class __metaclass__(type):
         def __init__(cls, name, bases, _dict):
-            global registry
-            
             type.__init__(cls, name, bases, _dict)
             # We must not add this class to the plugin registry!
             if name != "Plugin":

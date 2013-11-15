@@ -19,7 +19,6 @@ import time
 import logging
 import Queue
 import traceback
-from pprint import pprint
 import pinolo.plugins
 from pinolo.signals import SignalDispatcher
 from pinolo.irc import IRCConnection, COMMAND_ALIASES
@@ -52,6 +51,7 @@ class Bot(SignalDispatcher):
             self.config["datadir"], "db.sqlite")
         self.db_engine = None
         self.running = False
+        self._last_crontab = time.time()
 
         for server in config['servers']:
             server_config = config['servers'][server]
@@ -68,7 +68,7 @@ class Bot(SignalDispatcher):
         self.signal_emit("pre_connect")
         
         for conn_name, conn_obj in self.connections.iteritems():
-            log.info("Connecting to server: %s" % conn_name)
+            log.info("Connecting to server: %s", conn_name)
             conn_obj.connect()
 
         for conn_obj in self.connections.values():
@@ -83,8 +83,6 @@ class Bot(SignalDispatcher):
     def main_loop(self):
         """Main loop. Here we handle the network connections and buffers,
         dispatching events to the IRC clients when needed."""
-
-        self._last_crontab = time.time()
         
         while self.running:
             # handle_network() will block for at most 1 second during
@@ -166,7 +164,7 @@ class Bot(SignalDispatcher):
             # If this is the first time we get a "writable" status then
             # we are actually connected to the remote server.
             if conn_obj.connected == False:
-                log.info("Connected to %s" % conn_obj.name)
+                log.info("Connected to %s", conn_obj.name)
                 conn_obj.connected = True
 
                 # SSL socket setup
@@ -213,7 +211,7 @@ class Bot(SignalDispatcher):
         """
         try:
             data = list(self.coda.get_nowait())
-        except Queue.Empty, e:
+        except Queue.Empty:
             pass
         else:
             fn = data.pop(0)
@@ -254,14 +252,16 @@ class Bot(SignalDispatcher):
         disabled_plugins = self.config.get("disabled_plugins", [])
 
         filtro = re.compile(r"^[^_].+\.py$")
-        for filename in filter(filtro.match, os.listdir(plugins_dir)):
+        for filename in [name for name in os.listdir(plugins_dir)
+                         if filtro.match(name)]:
             plugin_name = os.path.splitext(filename)[0]
 
             if plugin_name in disabled_plugins:
-                log.info("Not loading disabled plugin (from config): %s" % plugin_name)
+                log.info("Not loading disabled plugin (from config): %s",
+                         plugin_name)
                 continue
             
-            log.info("Loading plugin %s" % plugin_name)
+            log.info("Loading plugin %s", plugin_name)
             try:
                 module = my_import("pinolo.plugins." + plugin_name)
             except Exception, e:
@@ -284,7 +284,7 @@ class Bot(SignalDispatcher):
 
         for _, plugin_class in pinolo.plugins.registry:
             plugin_name = basename(plugin_class.__module__)
-            log.info("Activating plugin %s" % plugin_name)
+            log.info("Activating plugin %s", plugin_name)
             if plugin_name in self.config["plugins"]:
                 plugin_config = self.config["plugins"][plugin_name]
             else:

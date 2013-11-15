@@ -32,7 +32,7 @@ def read_prcd_files():
         category = unicode(category, 'utf-8', 'replace')
         # fd = pkg_resources.resource_stream(__name__, "data/prcd/%s" % filename)
         path = pkg_resources.resource_filename("pinolo", "data/prcd/%s" % filename)
-        log.debug("Opening PRCD file %s" % path)
+        log.debug("Opening PRCD file %s", path)
         try:
             with codecs.open(path, "rb", encoding="utf-8") as fd:
                 lines = fd.readlines()
@@ -67,7 +67,7 @@ class PrcdPlugin(Plugin):
         event.reply(u', '.join(self.prcd_categories))
 
     def on_cmd_PRCD(self, event):
-        cat, moccolo = self.moccolo_random(event.text or None)
+        _, moccolo = self.moccolo_random(event.text or None)
         if not moccolo:
             event.reply(u"La categoria non esiste!")
         else:
