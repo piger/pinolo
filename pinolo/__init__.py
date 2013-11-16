@@ -11,4 +11,4 @@
 VERSION = (0, 10, 3)
 STR_VERSION = '.'.join([str(x) for x in VERSION])
 SOURCE_URL = "https://github.com/piger/pinolo"
-USER_AGENT = "Pinolo/%s +%s" % (STR_VERSION, SOURCE_URL)
+USER_AGENT = "Pinolo_%s %s" % (STR_VERSION, SOURCE_URL)

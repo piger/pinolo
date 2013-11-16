@@ -3,8 +3,9 @@ import logging
 import getopt
 import sys
 import os
-from pinolo.bot import Bot
-from pinolo.config import read_config_file
+from pinolo import bot
+from pinolo import config
+from pinolo import USER_AGENT
 
 
 logging.basicConfig(level=logging.WARNING,
@@ -16,9 +17,6 @@ usage = \
 Usage: {0} [-v] [-d] [-h] [-V] -c filename
     {0} [--verbose] [--debug] [--help] [--version] --config filename
 """
-
-version = "pinolo x.y"
-
 
 def fatal(msg, code=1):
     """Print an error message and exit the program"""
@@ -53,7 +51,7 @@ def main():
         elif name in ('-v', '--verbose'):
             options['verbose'] = True
         elif name in ('-V', '--version'):
-            print version
+            print USER_AGENT
             sys.exit(0)
 
     # Check for mandatory options
@@ -74,17 +72,17 @@ def main():
 
 def start_bot(options):
     """Launch the irc bot instance"""
-    config = read_config_file(options['config_file'])
-    bot = Bot(config)
+    cfg = config.read_config_file(options['config_file'])
+    pinolo = bot.Bot(cfg)
 
     # This try block is ugly but allow us to catch the interrupt signal
     # and still do a clean exit.
     try:
-        bot.start()
+        pinolo.start()
     except KeyboardInterrupt:
         print "\nInterrupt, exiting.\nPress CTRL-C again to force exit"
-        bot.quit()
-        bot.main_loop()
+        pinolo.quit()
+        pinolo.main_loop()
 
 
 if __name__ == '__main__':

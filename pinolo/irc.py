@@ -16,7 +16,7 @@ import errno
 import time
 import traceback
 import ssl
-from pinolo.casuale import get_random_quit
+from pinolo import casuale
 from pinolo import USER_AGENT
 
 
@@ -79,6 +79,8 @@ def parse_usermask(usermask):
     else:
         return (None, None, None)
 
+def is_channel(target):
+    return target.startswith(u"#") or target.startswith(u"&")
 
 class IRCUser(object):
     def __init__(self, nickname, ident=None, hostname=None):
@@ -91,7 +93,27 @@ class IRCUser(object):
 
 
 class IRCEvent(object):
+    """Generic interface to IRC events; instances of this class contains all
+    the details about an event and can be used to easily reply to PRIVMSG and
+    NOTICES.
+
+    nickname!ident@hostname PRIVMSG #channel :hello world!
+    `---------------------' `-----' `------'  `----------'
+    |_ IRCUser               |            |       |_ text
+                             |_ command   |
+                                          |_ argstr / args
+    """
     def __init__(self, client, user, command, argstr, args=None, text=None):
+        """Creates a new IRCEvent instance with the event parameters
+
+        :param client: the IRCConnection instance that received this event
+        :param user: the IRCUser that generated this event
+        :param command: the IRC command (PRIVMSG, NOTICE, ...) or bot command
+        (!quotes, !quit, ...)
+        :param argstr: the event arguments as string
+        :param args: the event arguments as list
+        :param text: the event text string
+        """
         self.client = client
         self.user = user
         self.command = command
@@ -115,7 +137,7 @@ class IRCEvent(object):
         assert isinstance(self.nickname, unicode) is True
 
         recipient = self.args[0]
-        if recipient.startswith(u"#"):
+        if is_channel(recipient):
             if prefix:
                 message = u"{0}: {1}".format(self.nickname, message)
             self.client.msg(recipient, message)
@@ -302,12 +324,12 @@ class IRCConnection(object):
             if nl == -1:
                 break
             line = self.in_buffer[:nl]
+            # strip \r newlines
+            line = line.replace("\r", "")
             lines.append(line)
             self.in_buffer = self.in_buffer[nl + 1:]
 
         for line in lines:
-            line = line.replace("\r", "")
-            
             try:
                 line = line.decode('utf-8', 'replace')
             except UnicodeDecodeError:
@@ -358,7 +380,7 @@ class IRCConnection(object):
     def quit(self, message=None):
         """Quit from the server"""
         if message is None:
-            message = get_random_quit()
+            message = casuale.get_random_quit()
         self.send(u"QUIT :{0}".format(message))
 
     def msg(self, target, message):

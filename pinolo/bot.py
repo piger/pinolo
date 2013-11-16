@@ -20,10 +20,10 @@ import logging
 import Queue
 import traceback
 import pinolo.plugins
-from pinolo.signals import SignalDispatcher
-from pinolo.irc import IRCConnection, COMMAND_ALIASES
-from pinolo.database import init_db
-from pinolo.config import empty_config
+from pinolo import signals
+from pinolo import irc
+from pinolo import database
+from pinolo import config
 
 
 log = logging.getLogger()
@@ -35,13 +35,13 @@ CRONTAB_INTERVAL = 60
 SELECT_TIMEOUT = 1
 
 
-class Bot(SignalDispatcher):
+class Bot(signals.SignalDispatcher):
     """Main Bot controller class.
 
     Handle the network stuff, must be initialized with a configuration object.
     """
     def __init__(self, config):
-        SignalDispatcher.__init__(self)
+        signals.SignalDispatcher.__init__(self)
         self.config = config
         self.connections = {}
         self.connection_map = {}
@@ -55,14 +55,14 @@ class Bot(SignalDispatcher):
 
         for server in config['servers']:
             server_config = config['servers'][server]
-            ircc = IRCConnection(server, server_config, self)
+            ircc = irc.IRCConnection(server, server_config, self)
             self.connections[server] = ircc
 
     def start(self):
         # Here we also load and activate the plugins
         self.load_plugins()
         # XXX Database get initialized HERE.
-        self.db_engine = init_db(self.db_uri)
+        self.db_engine = database.init_db(self.db_uri)
         self.activate_plugins()
 
         self.signal_emit("pre_connect")
@@ -105,15 +105,9 @@ class Bot(SignalDispatcher):
         # For the select() call we must create two distinct groups of sockets
         # to watch for: all the active sockets must be checked for reading, but
         # only sockets with a non empty out-buffer will be checked for writing.
-        in_sockets = []
-        for connection in self.connections.values():
-            if connection.active:
-                in_sockets.append(connection.socket)
-
-        out_sockets = []
-        for connection in self.connections.values():
-            if len(connection.out_buffer):
-                out_sockets.append(connection.socket)
+        in_sockets = [c.socket for c in self.connections.values() if c.active]
+        out_sockets = [c.socket for c in self.connections.values()
+                       if len(c.out_buffer)]
 
         # This is ugly. XXX
         if not in_sockets:
@@ -121,77 +115,47 @@ class Bot(SignalDispatcher):
             self.running = False
             return
 
-        readable, writable, _ = select.select(in_sockets,
-                                              out_sockets,
-                                              [],
+        readable, writable, _ = select.select(in_sockets, out_sockets, [],
                                               SELECT_TIMEOUT)
 
         # Do the reading for the readable sockets
         for s in readable:
-            conn_obj = self.connection_map[s]
-
-            # Do SSL handshake if needed
-            if conn_obj.ssl_must_handshake and conn_obj.connected:
-                result = self.do_handshake(conn_obj.socket)
-                if not result:
-                    continue
-
-            # We must read data from socket until the syscall returns EAGAIN;
-            # when the OS signals EAGAIN the socket would block reading.
-            while True:
-                try:
-                    chunk = s.recv(512)
-                except (socket.error, ssl.SSLError) as err:
-                    if err.args[0] in (errno.EAGAIN, ssl.SSL_ERROR_WANT_READ):
-                        break
-                    else:
-                        raise
-
-                if chunk == '':
-                    conn_obj.connected = False
-                    conn_obj.active = False
-                    log.error("{0} disconnected (EOF from server)".format(conn_obj.name))
-                    break
-                else:
-                    conn_obj.in_buffer += chunk
-
-            self.connection_map[s].check_in_buffer()
+            connection = self.connection_map[s]
+            self._handle_network_in(connection)
 
         # scrive
         for s in writable:
-            conn_obj = self.connection_map[s]
+            connection = self.connection_map[s]
 
             # If this is the first time we get a "writable" status then
             # we are actually connected to the remote server.
-            if conn_obj.connected == False:
-                log.info("Connected to %s", conn_obj.name)
-                conn_obj.connected = True
+            if connection.connected == False:
+                log.info("Connected to %s", connection.name)
+                connection.connected = True
 
                 # SSL socket setup
-                if conn_obj.config["ssl"]:
-                    conn_obj.wrap_ssl()
+                if connection.config["ssl"]:
+                    connection.wrap_ssl()
                     # swap the socket in the connection map with the ssl one
-                    self.connection_map[conn_obj.socket] = conn_obj
                     del self.connection_map[s]
-                    s = conn_obj.socket
+                    self.connection_map[connection.socket] = connection
 
             # SSL handshake
-            if conn_obj.ssl_must_handshake and conn_obj.connected:
-                result = self.do_handshake(s)
-                if not result:
+            if connection.ssl_must_handshake and connection.connected:
+                if not self.do_handshake(connection.socket):
                     continue
                 
             # check if we got disconnected while reading from socket
             # XXX should be empty the out buffer?
-            if not conn_obj.connected:
+            if not connection.connected:
                 log.error("Trying to write to a non connected socket!")
-                conn_obj.out_buffer = ""
+                connection.out_buffer = ""
                 continue
 
-            while len(conn_obj.out_buffer):
+            while len(connection.out_buffer):
                 try:
-                    sent = s.send(conn_obj.out_buffer)
-                    conn_obj.out_buffer = conn_obj.out_buffer[sent:]
+                    sent = connection.socket.send(connection.out_buffer)
+                    connection.out_buffer = connection.out_buffer[sent:]
                     # Qui si potrebbe inserire una pausa artificiale
                     # per evitare i flood? ma il flood anche sticazzi,
                     # server *decenti* tipo inspircd non hanno più quel
@@ -201,6 +165,32 @@ class Bot(SignalDispatcher):
                         break
                     else:
                         raise
+
+    def _handle_network_in(self, connection):
+        # Do SSL handshake if needed
+        if connection.ssl_must_handshake and connection.connected:
+            if not self.do_handshake(connection.socket):
+                return
+
+        # We must read data from socket until the syscall returns EAGAIN;
+        # when the OS signals EAGAIN the socket would block reading.
+        while True:
+            try:
+                chunk = connection.socket.recv(512)
+            except (socket.error, ssl.SSLError) as err:
+                if err.args[0] in (errno.EAGAIN, ssl.SSL_ERROR_WANT_READ):
+                    break
+                else:
+                    raise
+
+            if chunk == '':
+                connection.connected = False
+                connection.active = False
+                log.info("%s disconnected (EOF)", connection.name)
+                return
+            else:
+                connection.in_buffer += chunk
+        connection.check_in_buffer()
 
     def check_queue(self):
         """Check the thread queue
@@ -288,12 +278,12 @@ class Bot(SignalDispatcher):
             if plugin_name in self.config["plugins"]:
                 plugin_config = self.config["plugins"][plugin_name]
             else:
-                plugin_config = empty_config(self.config, plugin_name)
+                plugin_config = config.empty_config(self.config, plugin_name)
 
             p_obj = plugin_class(self, plugin_config)
             p_obj.activate()
             self.plugins.append(p_obj)
-            COMMAND_ALIASES.update(p_obj.COMMAND_ALIASES.items())
+            irc.COMMAND_ALIASES.update(p_obj.COMMAND_ALIASES.items())
             self.signal_emit("plugin_activated", plugin_name=plugin_name,
                              plugin_object=p_obj)
 
