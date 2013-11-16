@@ -191,6 +191,7 @@ class Bot(SignalDispatcher):
             while len(conn_obj.out_buffer):
                 try:
                     sent = s.send(conn_obj.out_buffer)
+                    conn_obj.out_buffer = conn_obj.out_buffer[sent:]
                     # Qui si potrebbe inserire una pausa artificiale
                     # per evitare i flood? ma il flood anche sticazzi,
                     # server *decenti* tipo inspircd non hanno più quel
@@ -200,7 +201,6 @@ class Bot(SignalDispatcher):
                         break
                     else:
                         raise
-                conn_obj.out_buffer = conn_obj.out_buffer[sent:]
 
     def check_queue(self):
         """Check the thread queue
