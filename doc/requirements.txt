@@ -1,5 +1,5 @@
 PyStemmer==1.3.0
-SQLAlchemy==0.8.3
+SQLAlchemy==1.3.3
 Whoosh==2.5.5
 beautifulsoup4==4.3.2
 requests==2.20.0
